@@ -527,6 +527,69 @@ Comprehensive test coverage across all modules:
 - Scripts without metadata use the system Python interpreter
 - Scripts with metadata automatically get isolated environments via uv
 
+### 🔐 Managing Sensitive Secrets Safely
+
+To prevent LLMs from accessing your sensitive credentials:
+
+**✅ RECOMMENDED: Update .env files directly on the file system**
+
+```bash
+# Edit the skill's .env file directly (LLM cannot access your local files)
+nano ~/.skill-mcp/skills/my-skill/.env
+
+# Add your secrets manually
+API_KEY=your-actual-api-key-here
+DATABASE_PASSWORD=your-password-here
+OAUTH_TOKEN=your-token-here
+
+# Secure the file
+chmod 600 ~/.skill-mcp/skills/my-skill/.env
+```
+
+**Why this is important:**
+- ✅ LLMs never see your sensitive values
+- ✅ Secrets stay on your system only
+- ✅ No risk of credentials appearing in logs or outputs
+- ✅ Full control over sensitive data
+- ✅ Can be used with `git-secret` or similar tools for versioning
+
+**Workflow:**
+1. Claude creates the skill structure and scripts
+2. You manually add sensitive values to `.env` files
+3. Claude can read the `.env` keys (without seeing values) and use them
+4. Scripts access secrets via environment variables at runtime
+
+**Example:**
+```bash
+# Step 1: Claude creates skill "api-client" via MCP
+# You say: "Create a new skill called 'api-client'"
+
+# Step 2: You manually secure the secrets
+$ nano ~/.skill-mcp/skills/api-client/.env
+API_KEY=sk-abc123def456xyz789
+ENDPOINT=https://api.example.com
+
+$ chmod 600 ~/.skill-mcp/skills/api-client/.env
+
+# Step 3: Claude can now use the skill securely
+# You say: "Run the API client script"
+# Claude reads env var names only, uses them in scripts
+# Your actual API key is never exposed to Claude
+```
+
+**❌ NEVER DO:**
+- ❌ Tell Claude your actual API keys or passwords
+- ❌ Ask Claude to set environment variables with sensitive values
+- ❌ Store secrets in SKILL.md or other tracked files
+- ❌ Use `update_skill_env` tool with real secrets (only for non-sensitive config)
+
+**✅ DO:**
+- ✅ Update `.env` files manually on your system
+- ✅ Keep `.env` files in `.gitignore`
+- ✅ Use `chmod 600` to restrict file access
+- ✅ Tell Claude only the variable names (e.g., "the API key is in API_KEY")
+- ✅ Keep secrets completely separate from LLM interactions
+
 ## ⚠️ Important: Verify LLM-Generated Code
 
 When Claude or other LLMs create or modify skills and scripts using this MCP system, **always verify the generated code before running it in production**:
