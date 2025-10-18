@@ -94,6 +94,12 @@ async def main():
         )
 
 
+def run():
+    """Entry point for the MCP server."""
+    import asyncio
+    asyncio.run(main())
+
+
 if __name__ == "__main__":
     import asyncio
     asyncio.run(main())

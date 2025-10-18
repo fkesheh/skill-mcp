@@ -1,6 +1,6 @@
 [project]
 name = "skill-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Model Context Protocol (MCP) server for managing Claude skills"
 authors = [
     {name = "fkesheh"}
@@ -31,7 +31,7 @@ dependencies = [
 ]
 
 [project.scripts]
-skill-mcp-server = "skill_mcp.server:main"
+skill-mcp-server = "skill_mcp.server:run"
 
 [project.urls]
 Homepage = "https://github.com/fkesheh/skill-mcp"
