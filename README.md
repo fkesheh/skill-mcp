@@ -42,6 +42,14 @@ Your skills can run in:
 - ✅ Can be versioned, shared, and reused across projects
 - ✅ Standard MCP protocol ensures compatibility
 
+### 🔄 Share Skills Across All MCP Clients
+
+- ✅ **One skill directory, multiple clients** - Create once, use everywhere
+- ✅ **Same skills in Cursor and Claude** - No duplication needed
+- ✅ **Seamless switching** - Move between tools without reconfiguring
+- ✅ **Consistent experience** - Skills work identically across all MCP clients
+- ✅ **Centralized management** - Update skills in one place, available everywhere
+
 ### 🤖 LLM-Managed Skills (No Manual Copy-Paste)
 
 Instead of manually copying, zipping, and uploading files:
