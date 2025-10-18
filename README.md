@@ -94,8 +94,8 @@ Instead of manually copying, zipping, and uploading files:
 
 ### Environment Variables
 - ✅ List environment variable keys (secure - no values shown)
-- ✅ Set or update environment variables
-- ✅ Persistent storage in `~/.skill-mcp/secrets`
+- ✅ Set or update environment variables per skill
+- ✅ Persistent storage in per-skill `.env` files
 - ✅ Automatic injection into script execution
 
 ## Directory Structure
@@ -103,15 +103,16 @@ Instead of manually copying, zipping, and uploading files:
 ```
 ~/.skill-mcp/
 ├── skill_mcp_server.py          # The MCP server (you install this)
-├── secrets                       # Environment variables (JSON format)
 └── skills/                       # Your skills directory
     ├── example-skill/
     │   ├── SKILL.md             # Required: skill definition
+    │   ├── .env                 # Optional: skill-specific environment variables
     │   ├── scripts/             # Optional: executable scripts
     │   ├── references/          # Optional: documentation
     │   └── assets/              # Optional: templates, files
     └── another-skill/
-        └── SKILL.md
+        ├── SKILL.md
+        └── .env
 ```
 
 ## Quick Start
@@ -245,9 +246,9 @@ Claude will:
 User: "I need to set up a GitHub API token for my GitHub skills"
 
 Claude will:
-1. Ask for your token value
-2. Store it securely using set_env
-3. Confirm it's available for scripts to use
+1. Guide you to add it to the skill's .env file
+2. Use `read_skill_env` to list available keys
+3. Confirm it's available for scripts to use via `os.environ`
 ```
 
 ### Running Skill Scripts
@@ -276,17 +277,17 @@ Claude will:
 
 The server provides these tools to Claude:
 
-| Tool | Purpose |
-|------|---------|
-| `list_skills` | List all skills in ~/.skill-mcp/skills |
-| `get_skill_files` | List files in a specific skill |
+| Tool              | Purpose |
+|-------------------|---------|
+| `list_skills`     | List all skills in ~/.skill-mcp/skills |
+| `get_skill_details` | Get comprehensive details about a specific skill |
 | `read_skill_file` | Read content of a skill file |
 | `create_skill_file` | Create a new file in a skill |
 | `update_skill_file` | Update an existing skill file |
 | `delete_skill_file` | Delete a skill file |
 | `run_skill_script` | Execute a script with environment variables |
-| `list_env_keys` | List environment variable names |
-| `set_env` | Set an environment variable |
+| `read_skill_env`  | List environment variable keys for a skill (values hidden) |
+| `update_skill_env`| Create/update a skill's .env file |
 
 ## Security Features
 
@@ -297,8 +298,8 @@ The server provides these tools to Claude:
 
 ### Environment Variables
 - Variable values are never exposed when listing
-- Stored in a separate secrets file
-- File permissions should be restricted (chmod 600)
+- Stored in per-skill `.env` files
+- File permissions should be restricted (chmod 600 on each .env)
 
 ### Script Execution
 - 30-second timeout prevents infinite loops
@@ -319,7 +320,7 @@ The server provides these tools to Claude:
 chmod +x ~/.skill-mcp/skill_mcp_server.py
 chmod 755 ~/.skill-mcp
 chmod 755 ~/.skill-mcp/skills
-chmod 600 ~/.skill-mcp/secrets
+find ~/.skill-mcp/skills -name ".env" -exec chmod 600 {} \;
 ```
 
 ### Scripts failing to execute
@@ -329,8 +330,8 @@ chmod 600 ~/.skill-mcp/secrets
 - Check stderr output from `run_skill_script`
 
 ### Environment variables not working
-- Verify they're set: use `list_env_keys`
-- Check the secrets file exists: `cat ~/.skill-mcp/secrets`
+- Verify they're set: use `read_skill_env` for the skill
+- Check the .env file exists: `cat ~/.skill-mcp/skills/<skill-name>/.env`
 - Ensure your script is reading from `os.environ`
 
 ## Advanced: Tool Descriptions for LLMs
@@ -349,8 +350,8 @@ All MCP tools have been enhanced with detailed descriptions to prevent confusion
 
 ### Script Tools
 - **run_skill_script** - Execute scripts with automatic PEP 723 dependency detection
-- **read_skill_env** - List environment variables (keys only, values hidden for security)
-- **update_skill_env** - Create/update skill's .env file
+- **read_skill_env** - List environment variables for a skill (keys only, values hidden for security)
+- **update_skill_env** - Create/update a skill's .env file
 
 ## Advanced Configuration
 
@@ -361,10 +362,8 @@ Edit `skill_mcp_server.py` to change default locations:
 ```python
 # Change skills directory
 SKILLS_DIR = Path("/custom/path/to/skills")
-
-# Change secrets file location
-SECRETS_FILE = Path("/custom/path/to/secrets")
 ```
+(No global secrets file; env vars are per-skill .env)
 
 ### Resource Limits
 
@@ -494,7 +493,7 @@ Comprehensive test coverage across all modules:
 ### Environment Variables
 - Use descriptive names (API_KEY, DATABASE_URL)
 - Never log or print sensitive values
-- Set permissions on secrets file: `chmod 600 ~/.skill-mcp/skills/skillname/.env`
+- Set permissions on .env files: `chmod 600 ~/.skill-mcp/skills/<skill-name>/.env`
 
 ### Script Development
 - Use meaningful exit codes (0 = success)
