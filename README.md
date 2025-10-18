@@ -121,61 +121,46 @@ Instead of manually copying, zipping, and uploading files:
 This project uses [uv](https://github.com/astral-sh/uv) for fast, reliable Python package management.
 
 ```bash
-# Install uv
+# Install uv (includes uvx)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### 2. Install the MCP Server
+### 2. Configure Your MCP Client
 
-```bash
-# Create directory
-mkdir -p ~/.skill-mcp
-
-# Copy all project files
-cp -r src tests pyproject.toml ~/.skill-mcp/
-
-# Install dependencies (uv auto-creates .venv)
-cd ~/.skill-mcp
-uv sync
-```
-
-### 3. Configure Claude
-
-Add the MCP server to your Claude configuration:
+Add the MCP server to your configuration. The server will be automatically downloaded and run via `uvx` from PyPI.
 
 **Claude Desktop** - Edit the config file:
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 - Linux: `~/.config/Claude/claude_desktop_config.json`
 
+**Cursor** - Edit the config file:
+- macOS: `~/.cursor/mcp.json`
+- Windows: `%USERPROFILE%\.cursor\mcp.json`
+- Linux: `~/.cursor/mcp.json`
+
 ```json
 {
   "mcpServers": {
     "skill-mcp": {
-      "command": "uv",
+      "command": "uvx",
       "args": [
-        "run",
-        "--directory",
-        "/Users/yourname/.skill-mcp",
-        "-m",
-        "skill_mcp.server"
+        "--from",
+        "skill-mcp",
+        "skill-mcp-server"
       ]
     }
   }
 }
 ```
 
-**Important:** Replace `/Users/yourname/.skill-mcp` with your actual absolute path!
+That's it! No installation needed - `uvx` will automatically download and run the latest version from PyPI.
 
-**claude.ai** - Use the web interface:
-1. Go to Settings > Developer > MCP Servers
-2. Add new MCP server with the same configuration
+### 3. Restart Your MCP Client
 
-### 4. Restart Claude
+Restart Claude Desktop or Cursor to load the MCP server.
 
-Restart Claude Desktop or refresh claude.ai to load the new MCP server.
-
-### 5. Test It
+### 4. Test It
 
 In a new conversation:
 ```
@@ -629,6 +614,58 @@ When Claude or other LLMs create or modify skills and scripts using this MCP sys
 - Start with read-only operations before destructive ones
 
 **Remember:** LLM-generated code is a starting point. Your verification and review are essential for security and reliability.
+
+## Installation from PyPI
+
+To install the package globally (optional):
+
+```bash
+pip install skill-mcp
+```
+
+Or use `uvx` to run without installation (recommended):
+
+```bash
+uvx --from skill-mcp skill-mcp-server
+```
+
+## Development Setup
+
+If you want to contribute or run from source:
+
+```bash
+# Clone the repository
+git clone https://github.com/fkesheh/skill-mcp.git
+cd skill-mcp
+
+# Install dependencies
+uv sync
+
+# Run tests
+uv run pytest
+
+# Run the server locally
+uv run -m skill_mcp.server
+```
+
+To use your local development version in your MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "skill-mcp": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "/path/to/your/skill-mcp",
+        "-m",
+        "skill_mcp.server"
+      ]
+    }
+  }
+}
+```
 
 ## License
 
