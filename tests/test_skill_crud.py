@@ -1,12 +1,10 @@
 """Tests for unified skill CRUD tool."""
 
 import pytest
-import asyncio
-from pathlib import Path
-from skill_mcp.tools.skill_crud import SkillCrud
-from skill_mcp.models_crud import SkillCrudInput
+
 from skill_mcp.core.config import SKILLS_DIR
-from skill_mcp.core.exceptions import SkillNotFoundError, SkillAlreadyExistsError
+from skill_mcp.models_crud import SkillCrudInput
+from skill_mcp.tools.skill_crud import SkillCrud
 
 
 @pytest.fixture
@@ -22,6 +20,7 @@ def cleanup_test_skill(test_skill_name):
     skill_dir = SKILLS_DIR / test_skill_name
     if skill_dir.exists():
         import shutil
+
         shutil.rmtree(skill_dir)
 
 
@@ -58,7 +57,7 @@ class TestSkillCrudCreate:
             operation="create",
             skill_name=test_skill_name,
             description="Test skill",
-            template="basic"
+            template="basic",
         )
         result = await SkillCrud.skill_crud(input_data)
 
@@ -74,7 +73,7 @@ class TestSkillCrudCreate:
             operation="create",
             skill_name=skill_name,
             description="Python test skill",
-            template="python"
+            template="python",
         )
         result = await SkillCrud.skill_crud(input_data)
 
@@ -85,6 +84,7 @@ class TestSkillCrudCreate:
         skill_dir = SKILLS_DIR / skill_name
         if skill_dir.exists():
             import shutil
+
             shutil.rmtree(skill_dir)
 
     @pytest.mark.asyncio
@@ -106,17 +106,13 @@ class TestSkillCrudGet:
         """Test getting details of an existing skill."""
         # First create a skill
         create_input = SkillCrudInput(
-            operation="create",
-            skill_name=test_skill_name,
-            description="Test skill"
+            operation="create", skill_name=test_skill_name, description="Test skill"
         )
         await SkillCrud.skill_crud(create_input)
 
         # Now get its details
         get_input = SkillCrudInput(
-            operation="get",
-            skill_name=test_skill_name,
-            include_content=True
+            operation="get", skill_name=test_skill_name, include_content=True
         )
         result = await SkillCrud.skill_crud(get_input)
 
@@ -138,10 +134,7 @@ class TestSkillCrudGet:
     @pytest.mark.asyncio
     async def test_get_nonexistent_skill(self):
         """Test getting a nonexistent skill."""
-        input_data = SkillCrudInput(
-            operation="get",
-            skill_name="nonexistent-skill-xyz"
-        )
+        input_data = SkillCrudInput(operation="get", skill_name="nonexistent-skill-xyz")
         result = await SkillCrud.skill_crud(input_data)
 
         assert len(result) == 1
@@ -156,17 +149,12 @@ class TestSkillCrudValidate:
         """Test validating a valid skill."""
         # Create a skill first
         create_input = SkillCrudInput(
-            operation="create",
-            skill_name=test_skill_name,
-            description="Test skill"
+            operation="create", skill_name=test_skill_name, description="Test skill"
         )
         await SkillCrud.skill_crud(create_input)
 
         # Validate it
-        validate_input = SkillCrudInput(
-            operation="validate",
-            skill_name=test_skill_name
-        )
+        validate_input = SkillCrudInput(operation="validate", skill_name=test_skill_name)
         result = await SkillCrud.skill_crud(validate_input)
 
         assert len(result) == 1
@@ -192,18 +180,12 @@ class TestSkillCrudDelete:
         """Test deleting a skill with confirmation."""
         # Create a skill first
         create_input = SkillCrudInput(
-            operation="create",
-            skill_name=test_skill_name,
-            description="Test skill"
+            operation="create", skill_name=test_skill_name, description="Test skill"
         )
         await SkillCrud.skill_crud(create_input)
 
         # Delete it
-        delete_input = SkillCrudInput(
-            operation="delete",
-            skill_name=test_skill_name,
-            confirm=True
-        )
+        delete_input = SkillCrudInput(operation="delete", skill_name=test_skill_name, confirm=True)
         result = await SkillCrud.skill_crud(delete_input)
 
         assert len(result) == 1
@@ -215,18 +197,12 @@ class TestSkillCrudDelete:
         """Test delete fails without confirmation."""
         # Create a skill first
         create_input = SkillCrudInput(
-            operation="create",
-            skill_name=test_skill_name,
-            description="Test skill"
+            operation="create", skill_name=test_skill_name, description="Test skill"
         )
         await SkillCrud.skill_crud(create_input)
 
         # Try to delete without confirm
-        delete_input = SkillCrudInput(
-            operation="delete",
-            skill_name=test_skill_name,
-            confirm=False
-        )
+        delete_input = SkillCrudInput(operation="delete", skill_name=test_skill_name, confirm=False)
         result = await SkillCrud.skill_crud(delete_input)
 
         assert len(result) == 1

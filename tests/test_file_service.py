@@ -1,8 +1,9 @@
 """Tests for file service."""
 
 import pytest
-from skill_mcp.services.file_service import FileService
+
 from skill_mcp.core.exceptions import FileNotFoundError, SkillNotFoundError
+from skill_mcp.services.file_service import FileService
 
 
 def test_list_skill_files_nonexistent_skill(temp_skills_dir, monkeypatch):

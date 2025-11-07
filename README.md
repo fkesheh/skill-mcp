@@ -4,9 +4,9 @@ A Model Context Protocol (MCP) server that enables Claude to manage skills store
 
 ## Quick Status
 
-**Status:** ✅ Production Ready  
-**Test Coverage:** 82% (78/78 tests passing)  
-**Deployed:** October 18, 2025  
+**Status:** ✅ Production Ready
+**Test Coverage:** 82% (78/78 tests passing)
+**Deployed:** October 18, 2025
 **Architecture:** 19-module modular Python package
 
 ## Overview

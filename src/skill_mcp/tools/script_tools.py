@@ -1,9 +1,10 @@
 """Script execution tools for MCP server."""
 
 from mcp import types
+
+from skill_mcp.core.exceptions import SkillMCPException
 from skill_mcp.models import RunSkillScriptInput
 from skill_mcp.services.script_service import ScriptService
-from skill_mcp.core.exceptions import SkillMCPException
 
 
 class ScriptTools:
@@ -50,7 +51,7 @@ RETURNS: Script execution result with:
                 inputSchema=RunSkillScriptInput.model_json_schema(),
             ),
         ]
-    
+
     @staticmethod
     async def run_skill_script(input_data: RunSkillScriptInput) -> list[types.TextContent]:
         """Execute a skill script."""
@@ -59,21 +60,21 @@ RETURNS: Script execution result with:
                 input_data.skill_name,
                 input_data.script_path,
                 input_data.args,
-                input_data.working_dir
+                input_data.working_dir,
             )
-            
+
             output = f"Script: {input_data.skill_name}/{input_data.script_path}\n"
             output += f"Exit code: {result.exit_code}\n\n"
-            
+
             if result.stdout:
                 output += f"STDOUT:\n{result.stdout}\n"
-            
+
             if result.stderr:
                 output += f"STDERR:\n{result.stderr}\n"
-            
+
             if not result.stdout and not result.stderr:
                 output += "(No output)\n"
-            
+
             return [types.TextContent(type="text", text=output)]
         except SkillMCPException as e:
             return [types.TextContent(type="text", text=f"Error: {str(e)}")]

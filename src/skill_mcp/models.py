@@ -1,23 +1,27 @@
 """Pydantic models for skill-mcp MCP tools."""
 
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, Field
 
 # Input Models
 
+
 class ListSkillsInput(BaseModel):
     """Input for listing all skills."""
+
     pass
 
 
 class GetSkillDetailsInput(BaseModel):
     """Input for getting detailed skill information."""
+
     skill_name: str = Field(description="Name of the skill")
 
 
 class ReadSkillFileInput(BaseModel):
     """Input for reading a skill file."""
+
     skill_name: str = Field(description="Name of the skill")
     file_path: str = Field(
         description="Relative path to the file within the skill directory (e.g., 'SKILL.md' or 'scripts/process.py')"
@@ -26,24 +30,23 @@ class ReadSkillFileInput(BaseModel):
 
 class CreateSkillFileInput(BaseModel):
     """Input for creating a new skill file."""
+
     skill_name: str = Field(description="Name of the skill")
-    file_path: str = Field(
-        description="Relative path for the new file within the skill directory"
-    )
+    file_path: str = Field(description="Relative path for the new file within the skill directory")
     content: str = Field(description="Content to write to the file")
 
 
 class UpdateSkillFileInput(BaseModel):
     """Input for updating an existing skill file."""
+
     skill_name: str = Field(description="Name of the skill")
-    file_path: str = Field(
-        description="Relative path to the file within the skill directory"
-    )
+    file_path: str = Field(description="Relative path to the file within the skill directory")
     content: str = Field(description="New file content")
 
 
 class DeleteSkillFileInput(BaseModel):
     """Input for deleting a skill file."""
+
     skill_name: str = Field(description="Name of the skill")
     file_path: str = Field(
         description="Relative path to the file to delete within the skill directory"
@@ -52,35 +55,36 @@ class DeleteSkillFileInput(BaseModel):
 
 class RunSkillScriptInput(BaseModel):
     """Input for running a skill script."""
+
     skill_name: str = Field(description="Name of the skill")
-    script_path: str = Field(
-        description="Relative path to the script within the skill directory"
-    )
+    script_path: str = Field(description="Relative path to the script within the skill directory")
     args: Optional[List[str]] = Field(
-        default=None,
-        description="Optional command-line arguments to pass to the script"
+        default=None, description="Optional command-line arguments to pass to the script"
     )
     working_dir: Optional[str] = Field(
-        default=None,
-        description="Optional working directory for script execution"
+        default=None, description="Optional working directory for script execution"
     )
 
 
 class ReadSkillEnvInput(BaseModel):
     """Input for reading skill .env file."""
+
     skill_name: str = Field(description="Name of the skill")
 
 
 class UpdateSkillEnvInput(BaseModel):
     """Input for updating skill .env file."""
+
     skill_name: str = Field(description="Name of the skill")
     content: str = Field(description=".env file content")
 
 
 # Output Models
 
+
 class FileInfo(BaseModel):
     """Information about a file."""
+
     path: str
     size: int
     type: str  # 'python', 'shell', 'markdown', 'unknown'
@@ -90,6 +94,7 @@ class FileInfo(BaseModel):
 
 class ScriptInfo(BaseModel):
     """Information about an executable script."""
+
     path: str
     type: str  # 'python', 'shell'
     has_uv_deps: bool = False
@@ -97,6 +102,7 @@ class ScriptInfo(BaseModel):
 
 class SkillMetadata(BaseModel):
     """Metadata extracted from SKILL.md YAML frontmatter."""
+
     name: Optional[str] = None
     description: Optional[str] = None
     extra: Dict[str, Any] = Field(default_factory=dict)
@@ -104,6 +110,7 @@ class SkillMetadata(BaseModel):
 
 class SkillDetails(BaseModel):
     """Comprehensive skill information."""
+
     name: str
     description: str
     metadata: SkillMetadata
@@ -116,6 +123,7 @@ class SkillDetails(BaseModel):
 
 class SkillSummary(BaseModel):
     """Lightweight skill summary for listing."""
+
     name: str
     description: str
     path: str

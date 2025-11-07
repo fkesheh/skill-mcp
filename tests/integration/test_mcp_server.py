@@ -1,17 +1,17 @@
 """Integration tests for MCP server with CRUD tools."""
 
-import pytest
 from unittest.mock import patch
-from skill_mcp.models import RunSkillScriptInput
+
+import pytest
+
 from skill_mcp.models_crud import (
     SkillCrudInput,
-    SkillFilesCrudInput,
     SkillEnvCrudInput,
+    SkillFilesCrudInput,
 )
 from skill_mcp.tools.skill_crud import SkillCrud
-from skill_mcp.tools.skill_files_crud import SkillFilesCrud
 from skill_mcp.tools.skill_env_crud import SkillEnvCrud
-from skill_mcp.tools.script_tools import ScriptTools
+from skill_mcp.tools.skill_files_crud import SkillFilesCrud
 
 
 @pytest.mark.asyncio
@@ -43,7 +43,9 @@ async def test_skill_crud_get(sample_skill, temp_skills_dir):
 async def test_skill_files_crud_read(sample_skill, temp_skills_dir):
     """Test skill_files_crud read operation."""
     with patch("skill_mcp.services.file_service.SKILLS_DIR", temp_skills_dir):
-        input_data = SkillFilesCrudInput(operation="read", skill_name="test-skill", file_path="SKILL.md")
+        input_data = SkillFilesCrudInput(
+            operation="read", skill_name="test-skill", file_path="SKILL.md"
+        )
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
         assert len(result) > 0
@@ -57,25 +59,21 @@ async def test_skill_files_crud_create_update_delete(sample_skill, temp_skills_d
     with patch("skill_mcp.services.file_service.SKILLS_DIR", temp_skills_dir):
         # Create
         create_input = SkillFilesCrudInput(
-            operation="create",
-            skill_name="test-skill",
-            file_path="test.txt",
-            content="initial"
+            operation="create", skill_name="test-skill", file_path="test.txt", content="initial"
         )
         result = await SkillFilesCrud.skill_files_crud(create_input)
         assert "Successfully created" in result[0].text
 
         # Read
-        read_input = SkillFilesCrudInput(operation="read", skill_name="test-skill", file_path="test.txt")
+        read_input = SkillFilesCrudInput(
+            operation="read", skill_name="test-skill", file_path="test.txt"
+        )
         result = await SkillFilesCrud.skill_files_crud(read_input)
         assert "initial" in result[0].text
 
         # Update
         update_input = SkillFilesCrudInput(
-            operation="update",
-            skill_name="test-skill",
-            file_path="test.txt",
-            content="updated"
+            operation="update", skill_name="test-skill", file_path="test.txt", content="updated"
         )
         result = await SkillFilesCrud.skill_files_crud(update_input)
         assert "Successfully updated" in result[0].text
@@ -86,9 +84,7 @@ async def test_skill_files_crud_create_update_delete(sample_skill, temp_skills_d
 
         # Delete
         delete_input = SkillFilesCrudInput(
-            operation="delete",
-            skill_name="test-skill",
-            file_path="test.txt"
+            operation="delete", skill_name="test-skill", file_path="test.txt"
         )
         result = await SkillFilesCrud.skill_files_crud(delete_input)
         assert "Successfully deleted" in result[0].text
@@ -114,7 +110,7 @@ async def test_skill_env_crud_set(sample_skill, temp_skills_dir):
         input_data = SkillEnvCrudInput(
             operation="set",
             skill_name="test-skill",
-            variables={"NEW_VAR": "value", "ANOTHER": "test"}
+            variables={"NEW_VAR": "value", "ANOTHER": "test"},
         )
         result = await SkillEnvCrud.skill_env_crud(input_data)
 
@@ -163,7 +159,7 @@ async def test_server_skill_files_crud(sample_skill, temp_skills_dir):
     with patch("skill_mcp.services.file_service.SKILLS_DIR", temp_skills_dir):
         result = await call_tool(
             "skill_files_crud",
-            {"operation": "read", "skill_name": "test-skill", "file_path": "SKILL.md"}
+            {"operation": "read", "skill_name": "test-skill", "file_path": "SKILL.md"},
         )
 
         assert len(result) > 0
@@ -176,7 +172,9 @@ async def test_server_skill_env_crud(skill_with_env, temp_skills_dir):
     from skill_mcp.server import call_tool
 
     with patch("skill_mcp.services.env_service.SKILLS_DIR", temp_skills_dir):
-        result = await call_tool("skill_env_crud", {"operation": "read", "skill_name": "test-skill"})
+        result = await call_tool(
+            "skill_env_crud", {"operation": "read", "skill_name": "test-skill"}
+        )
 
         assert len(result) > 0
         assert "API_KEY" in result[0].text

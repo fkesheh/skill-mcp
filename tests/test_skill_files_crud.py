@@ -1,11 +1,10 @@
 """Tests for unified skill files CRUD tool."""
 
 import pytest
-import asyncio
-from pathlib import Path
-from skill_mcp.tools.skill_files_crud import SkillFilesCrud
-from skill_mcp.models_crud import SkillFilesCrudInput, FileSpec
+
 from skill_mcp.core.config import SKILLS_DIR
+from skill_mcp.models_crud import FileSpec, SkillFilesCrudInput
+from skill_mcp.tools.skill_files_crud import SkillFilesCrud
 
 
 @pytest.fixture
@@ -29,6 +28,7 @@ def setup_test_skill(test_skill_name):
     # Cleanup
     if skill_dir.exists():
         import shutil
+
         shutil.rmtree(skill_dir)
 
 
@@ -42,7 +42,7 @@ class TestSkillFilesCrudCreate:
             operation="create",
             skill_name=setup_test_skill,
             file_path="test.py",
-            content="print('hello')"
+            content="print('hello')",
         )
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
@@ -60,10 +60,7 @@ class TestSkillFilesCrudCreate:
         ]
 
         input_data = SkillFilesCrudInput(
-            operation="create",
-            skill_name=setup_test_skill,
-            files=files,
-            atomic=True
+            operation="create", skill_name=setup_test_skill, files=files, atomic=True
         )
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
@@ -80,7 +77,7 @@ class TestSkillFilesCrudCreate:
             operation="create",
             skill_name=setup_test_skill,
             file_path="src/utils.py",
-            content="# Utils"
+            content="# Utils",
         )
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
@@ -98,7 +95,7 @@ class TestSkillFilesCrudCreate:
             skill_name=setup_test_skill,
             file_path="test.py",  # Single
             content="test",  # Single
-            files=files  # Bulk
+            files=files,  # Bulk
         )
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
@@ -110,9 +107,7 @@ class TestSkillFilesCrudCreate:
     async def test_create_without_content(self, setup_test_skill):
         """Test create fails without content."""
         input_data = SkillFilesCrudInput(
-            operation="create",
-            skill_name=setup_test_skill,
-            file_path="test.py"
+            operation="create", skill_name=setup_test_skill, file_path="test.py"
         )
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
@@ -133,9 +128,7 @@ class TestSkillFilesCrudRead:
 
         # Read it
         input_data = SkillFilesCrudInput(
-            operation="read",
-            skill_name=setup_test_skill,
-            file_path="test.py"
+            operation="read", skill_name=setup_test_skill, file_path="test.py"
         )
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
@@ -146,10 +139,7 @@ class TestSkillFilesCrudRead:
     @pytest.mark.asyncio
     async def test_read_without_file_path(self, setup_test_skill):
         """Test read fails without file_path."""
-        input_data = SkillFilesCrudInput(
-            operation="read",
-            skill_name=setup_test_skill
-        )
+        input_data = SkillFilesCrudInput(operation="read", skill_name=setup_test_skill)
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
         assert len(result) == 1
@@ -160,9 +150,7 @@ class TestSkillFilesCrudRead:
     async def test_read_nonexistent_file(self, setup_test_skill):
         """Test reading a nonexistent file."""
         input_data = SkillFilesCrudInput(
-            operation="read",
-            skill_name=setup_test_skill,
-            file_path="nonexistent.py"
+            operation="read", skill_name=setup_test_skill, file_path="nonexistent.py"
         )
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
@@ -186,7 +174,7 @@ class TestSkillFilesCrudUpdate:
             operation="update",
             skill_name=setup_test_skill,
             file_path="test.py",
-            content=new_content
+            content=new_content,
         )
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
@@ -208,9 +196,7 @@ class TestSkillFilesCrudUpdate:
         ]
 
         input_data = SkillFilesCrudInput(
-            operation="update",
-            skill_name=setup_test_skill,
-            files=files
+            operation="update", skill_name=setup_test_skill, files=files
         )
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
@@ -223,9 +209,7 @@ class TestSkillFilesCrudUpdate:
     async def test_update_without_content(self, setup_test_skill):
         """Test update fails without content."""
         input_data = SkillFilesCrudInput(
-            operation="update",
-            skill_name=setup_test_skill,
-            file_path="test.py"
+            operation="update", skill_name=setup_test_skill, file_path="test.py"
         )
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
@@ -245,9 +229,7 @@ class TestSkillFilesCrudDelete:
 
         # Delete it
         input_data = SkillFilesCrudInput(
-            operation="delete",
-            skill_name=setup_test_skill,
-            file_path="test.py"
+            operation="delete", skill_name=setup_test_skill, file_path="test.py"
         )
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
@@ -258,10 +240,7 @@ class TestSkillFilesCrudDelete:
     @pytest.mark.asyncio
     async def test_delete_without_file_path(self, setup_test_skill):
         """Test delete fails without file_path."""
-        input_data = SkillFilesCrudInput(
-            operation="delete",
-            skill_name=setup_test_skill
-        )
+        input_data = SkillFilesCrudInput(operation="delete", skill_name=setup_test_skill)
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
         assert len(result) == 1
@@ -275,10 +254,7 @@ class TestSkillFilesCrudInvalidOperation:
     @pytest.mark.asyncio
     async def test_unknown_operation(self, setup_test_skill):
         """Test unknown operation."""
-        input_data = SkillFilesCrudInput(
-            operation="invalid_op",
-            skill_name=setup_test_skill
-        )
+        input_data = SkillFilesCrudInput(operation="invalid_op", skill_name=setup_test_skill)
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
         assert len(result) == 1

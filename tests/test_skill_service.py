@@ -1,9 +1,11 @@
 """Tests for skill service."""
 
-import pytest
 from unittest.mock import patch
-from skill_mcp.services.skill_service import SkillService
+
+import pytest
+
 from skill_mcp.core.exceptions import SkillNotFoundError
+from skill_mcp.services.skill_service import SkillService
 
 
 def test_list_skills_empty(temp_skills_dir):
@@ -17,7 +19,7 @@ def test_list_skills_with_skill(sample_skill, temp_skills_dir):
     """Test listing skills."""
     with patch("skill_mcp.services.skill_service.SKILLS_DIR", temp_skills_dir):
         skills = SkillService.list_skills()
-        
+
         assert len(skills) > 0
         assert skills[0].name == "test-skill"
         assert skills[0].has_skill_md
@@ -27,7 +29,7 @@ def test_get_skill_details(sample_skill, temp_skills_dir):
     """Test getting skill details."""
     with patch("skill_mcp.services.skill_service.SKILLS_DIR", temp_skills_dir):
         details = SkillService.get_skill_details("test-skill")
-        
+
         assert details.name == "test-skill"
         assert details.description == "A test skill for unit testing"
         assert len(details.files) > 0
@@ -43,7 +45,7 @@ def test_get_skill_details_with_env(skill_with_env, temp_skills_dir):
     """Test getting skill details with .env file."""
     with patch("skill_mcp.services.skill_service.SKILLS_DIR", temp_skills_dir):
         details = SkillService.get_skill_details("test-skill")
-        
+
         assert details.has_env_file
         assert "API_KEY" in details.env_vars
         assert "DATABASE_URL" in details.env_vars

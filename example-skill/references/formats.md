@@ -59,13 +59,13 @@ Represented as:
 ## Common Issues
 
 ### Issue: "Invalid CSV format"
-**Cause:** File is not properly formatted CSV  
+**Cause:** File is not properly formatted CSV
 **Solution:** Ensure file has comma delimiters and proper headers
 
 ### Issue: "Encoding error"
-**Cause:** File is not UTF-8 encoded  
+**Cause:** File is not UTF-8 encoded
 **Solution:** Convert file to UTF-8 encoding
 
 ### Issue: "Too many rows"
-**Cause:** File exceeds MAX_ROWS limit  
+**Cause:** File exceeds MAX_ROWS limit
 **Solution:** Set MAX_ROWS environment variable higher or split the file
