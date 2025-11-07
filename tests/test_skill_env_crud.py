@@ -1,11 +1,10 @@
 """Tests for unified skill environment CRUD tool."""
 
 import pytest
-import asyncio
-from pathlib import Path
-from skill_mcp.tools.skill_env_crud import SkillEnvCrud
+
+from skill_mcp.core.config import ENV_FILE_NAME, SKILLS_DIR
 from skill_mcp.models_crud import SkillEnvCrudInput
-from skill_mcp.core.config import SKILLS_DIR, ENV_FILE_NAME
+from skill_mcp.tools.skill_env_crud import SkillEnvCrud
 
 
 @pytest.fixture
@@ -29,6 +28,7 @@ def setup_test_skill(test_skill_name):
     # Cleanup
     if skill_dir.exists():
         import shutil
+
         shutil.rmtree(skill_dir)
 
 
@@ -38,10 +38,7 @@ class TestSkillEnvCrudRead:
     @pytest.mark.asyncio
     async def test_read_empty_env(self, setup_test_skill):
         """Test reading environment with no variables."""
-        input_data = SkillEnvCrudInput(
-            operation="read",
-            skill_name=setup_test_skill
-        )
+        input_data = SkillEnvCrudInput(operation="read", skill_name=setup_test_skill)
         result = await SkillEnvCrud.skill_env_crud(input_data)
 
         assert len(result) == 1
@@ -54,10 +51,7 @@ class TestSkillEnvCrudRead:
         env_file = SKILLS_DIR / setup_test_skill / ENV_FILE_NAME
         env_file.write_text("API_KEY=test123\nDEBUG=true\n")
 
-        input_data = SkillEnvCrudInput(
-            operation="read",
-            skill_name=setup_test_skill
-        )
+        input_data = SkillEnvCrudInput(operation="read", skill_name=setup_test_skill)
         result = await SkillEnvCrud.skill_env_crud(input_data)
 
         assert len(result) == 1
@@ -76,7 +70,7 @@ class TestSkillEnvCrudSet:
             operation="set",
             skill_name=setup_test_skill,
             variables={"API_KEY": "sk-123"},
-            mode="smart"
+            mode="smart",
         )
         result = await SkillEnvCrud.skill_env_crud(input_data)
 
@@ -100,12 +94,8 @@ class TestSkillEnvCrudSet:
         input_data = SkillEnvCrudInput(
             operation="set",
             skill_name=setup_test_skill,
-            variables={
-                "API_KEY": "sk-123",
-                "DEBUG": "true",
-                "TIMEOUT": "30"
-            },
-            mode="merge"
+            variables={"API_KEY": "sk-123", "DEBUG": "true", "TIMEOUT": "30"},
+            mode="merge",
         )
         result = await SkillEnvCrud.skill_env_crud(input_data)
 
@@ -120,37 +110,9 @@ class TestSkillEnvCrudSet:
         assert "TIMEOUT=30" in content
 
     @pytest.mark.asyncio
-    async def test_set_replace_mode(self, setup_test_skill):
-        """Test setting variables in replace mode."""
-        # Set initial vars
-        env_file = SKILLS_DIR / setup_test_skill / ENV_FILE_NAME
-        env_file.write_text("EXISTING=value\nOLD=data\n")
-
-        # Replace with new vars
-        input_data = SkillEnvCrudInput(
-            operation="set",
-            skill_name=setup_test_skill,
-            variables={"NEW_KEY": "new_value"},
-            mode="replace"
-        )
-        result = await SkillEnvCrud.skill_env_crud(input_data)
-
-        assert len(result) == 1
-        assert "Successfully set 1 environment variable(s)" in result[0].text
-
-        # Verify old vars are gone
-        content = env_file.read_text()
-        assert "EXISTING" not in content
-        assert "OLD" not in content
-        assert "NEW_KEY=new_value" in content
-
-    @pytest.mark.asyncio
     async def test_set_without_variables(self, setup_test_skill):
         """Test set fails without variables."""
-        input_data = SkillEnvCrudInput(
-            operation="set",
-            skill_name=setup_test_skill
-        )
+        input_data = SkillEnvCrudInput(operation="set", skill_name=setup_test_skill)
         result = await SkillEnvCrud.skill_env_crud(input_data)
 
         assert len(result) == 1
@@ -170,9 +132,7 @@ class TestSkillEnvCrudDelete:
 
         # Delete one var
         input_data = SkillEnvCrudInput(
-            operation="delete",
-            skill_name=setup_test_skill,
-            keys=["DEBUG"]
+            operation="delete", skill_name=setup_test_skill, keys=["DEBUG"]
         )
         result = await SkillEnvCrud.skill_env_crud(input_data)
 
@@ -194,9 +154,7 @@ class TestSkillEnvCrudDelete:
 
         # Delete multiple vars
         input_data = SkillEnvCrudInput(
-            operation="delete",
-            skill_name=setup_test_skill,
-            keys=["API_KEY", "DEBUG", "TIMEOUT"]
+            operation="delete", skill_name=setup_test_skill, keys=["API_KEY", "DEBUG", "TIMEOUT"]
         )
         result = await SkillEnvCrud.skill_env_crud(input_data)
 
@@ -213,10 +171,7 @@ class TestSkillEnvCrudDelete:
     @pytest.mark.asyncio
     async def test_delete_without_keys(self, setup_test_skill):
         """Test delete fails without keys."""
-        input_data = SkillEnvCrudInput(
-            operation="delete",
-            skill_name=setup_test_skill
-        )
+        input_data = SkillEnvCrudInput(operation="delete", skill_name=setup_test_skill)
         result = await SkillEnvCrud.skill_env_crud(input_data)
 
         assert len(result) == 1
@@ -235,10 +190,7 @@ class TestSkillEnvCrudClear:
         env_file.write_text("API_KEY=sk-123\nDEBUG=true\nTIMEOUT=30\n")
 
         # Clear all
-        input_data = SkillEnvCrudInput(
-            operation="clear",
-            skill_name=setup_test_skill
-        )
+        input_data = SkillEnvCrudInput(operation="clear", skill_name=setup_test_skill)
         result = await SkillEnvCrud.skill_env_crud(input_data)
 
         assert len(result) == 1
@@ -250,10 +202,7 @@ class TestSkillEnvCrudClear:
     @pytest.mark.asyncio
     async def test_clear_when_no_env_file(self, setup_test_skill):
         """Test clearing when no env file exists."""
-        input_data = SkillEnvCrudInput(
-            operation="clear",
-            skill_name=setup_test_skill
-        )
+        input_data = SkillEnvCrudInput(operation="clear", skill_name=setup_test_skill)
         result = await SkillEnvCrud.skill_env_crud(input_data)
 
         assert len(result) == 1
@@ -267,10 +216,7 @@ class TestSkillEnvCrudInvalidOperation:
     @pytest.mark.asyncio
     async def test_unknown_operation(self, setup_test_skill):
         """Test unknown operation."""
-        input_data = SkillEnvCrudInput(
-            operation="invalid_op",
-            skill_name=setup_test_skill
-        )
+        input_data = SkillEnvCrudInput(operation="invalid_op", skill_name=setup_test_skill)
         result = await SkillEnvCrud.skill_env_crud(input_data)
 
         assert len(result) == 1

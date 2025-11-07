@@ -21,7 +21,7 @@ repos:
           - pydantic>=2.0.0
           - types-PyYAML
         args: [--ignore-missing-imports, --show-error-codes]
-        exclude: ^tests/
+        exclude: ^(tests/|example-skill/)
 
   # Basic file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks

@@ -42,7 +42,9 @@ class EnvironmentService:
 
         try:
             if env_file.exists():
-                return dict(dotenv_values(env_file))
+                # Filter out None values from dotenv_values
+                values = dotenv_values(env_file)
+                return {k: v for k, v in values.items() if v is not None}
             return {}
         except Exception as e:
             raise EnvFileError(f"Failed to load .env for skill '{skill_name}': {str(e)}")
