@@ -1,22 +1,17 @@
 """Script execution tools for MCP server."""
 
 from mcp import types
-from skill_mcp.models import (
-    RunSkillScriptInput,
-    ReadSkillEnvInput,
-    UpdateSkillEnvInput,
-)
+from skill_mcp.models import RunSkillScriptInput
 from skill_mcp.services.script_service import ScriptService
-from skill_mcp.services.env_service import EnvironmentService
 from skill_mcp.core.exceptions import SkillMCPException
 
 
 class ScriptTools:
-    """Tools for script execution and environment management."""
-    
+    """Tools for script execution."""
+
     @staticmethod
     def get_script_tools() -> list[types.Tool]:
-        """Get script and environment tools."""
+        """Get script execution tools."""
         return [
             types.Tool(
                 name="run_skill_script",
@@ -54,71 +49,6 @@ RETURNS: Script execution result with:
 - STDERR (error output)""",
                 inputSchema=RunSkillScriptInput.model_json_schema(),
             ),
-            types.Tool(
-                name="read_skill_env",
-                description="""Read and list all environment variable keys defined in a skill's .env file.
-
-This tool helps you understand what environment variables are configured for a skill:
-- Lists only the KEY names (values are hidden for security)
-- Shows whether a .env file exists for the skill
-- Returns an empty message if no variables are set
-
-PARAMETERS:
-- skill_name: The name of the skill directory
-
-USE CASES:
-- Check what environment variables a skill needs before running scripts
-- Verify that required credentials or API keys are configured
-- Understand the expected configuration for a skill
-- Debug missing environment variables
-
-SECURITY NOTE:
-- Environment variable VALUES are intentionally hidden and not returned
-- This prevents accidental exposure of secrets or credentials
-- To set or update variables, use update_skill_env tool
-
-RETURNS: A list of environment variable key names (e.g., API_KEY, DATABASE_URL)""",
-                inputSchema=ReadSkillEnvInput.model_json_schema(),
-            ),
-            types.Tool(
-                name="update_skill_env",
-                description="""Create, update, or replace the .env file for a skill with new environment variables.
-
-This tool manages skill-specific environment variables used by scripts:
-
-PARAMETERS:
-- skill_name: The name of the skill directory
-- content: The complete .env file content in KEY=VALUE format
-
-FORMAT:
-Each line should be: KEY=VALUE
-Example:
-  API_KEY=sk-abc123def456
-  DATABASE_URL=postgres://user:pass@localhost:5432/db
-  DEBUG=true
-  TIMEOUT=30
-
-BEHAVIOR:
-- Replaces the ENTIRE .env file with the content you provide
-- Creates the .env file if it doesn't exist
-- Each line should follow KEY=VALUE format (one per line)
-- Comments starting with # are allowed
-- Empty lines are allowed
-- These variables become available to all scripts run in this skill
-
-IMPORTANT:
-- Values will be stored as plain text, so don't commit sensitive values to git
-- Use the QUICKSTART.md for instructions on setting up secrets safely
-- After updating, use read_skill_env to verify keys were set correctly
-
-SECURITY:
-- Keep .env files in .gitignore to prevent accidental commits of secrets
-- Use environment variables for all sensitive data (API keys, passwords, tokens)
-- Never hardcode secrets in scripts
-
-RETURNS: Success message confirming the .env file was updated""",
-                inputSchema=UpdateSkillEnvInput.model_json_schema(),
-            ),
         ]
     
     @staticmethod
@@ -149,33 +79,3 @@ RETURNS: Success message confirming the .env file was updated""",
             return [types.TextContent(type="text", text=f"Error: {str(e)}")]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Error running script: {str(e)}")]
-    
-    @staticmethod
-    async def read_skill_env(input_data: ReadSkillEnvInput) -> list[types.TextContent]:
-        """Read skill's .env file - returns only keys, not values."""
-        try:
-            keys = EnvironmentService.get_env_keys(input_data.skill_name)
-            
-            if not keys:
-                result = f"No environment variables set for skill '{input_data.skill_name}'"
-            else:
-                keys_str = "\n".join(f"- {key}" for key in keys)
-                result = f"Environment variable keys for skill '{input_data.skill_name}':\n\n{keys_str}"
-            
-            return [types.TextContent(type="text", text=result)]
-        except SkillMCPException as e:
-            return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-        except Exception as e:
-            return [types.TextContent(type="text", text=f"Error reading .env: {str(e)}")]
-    
-    @staticmethod
-    async def update_skill_env(input_data: UpdateSkillEnvInput) -> list[types.TextContent]:
-        """Update skill's .env file."""
-        try:
-            EnvironmentService.update_env_file(input_data.skill_name, input_data.content)
-            result = f"Successfully updated .env file for skill '{input_data.skill_name}'"
-            return [types.TextContent(type="text", text=result)]
-        except SkillMCPException as e:
-            return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-        except Exception as e:
-            return [types.TextContent(type="text", text=f"Error updating .env: {str(e)}")]

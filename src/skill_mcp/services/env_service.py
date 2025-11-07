@@ -103,15 +103,108 @@ class EnvironmentService:
     def get_env_keys(skill_name: str) -> list[str]:
         """
         Get list of environment variable names for a skill.
-        
+
         Args:
             skill_name: Name of the skill
-            
+
         Returns:
             List of environment variable names
-            
+
         Raises:
             SkillNotFoundError: If skill doesn't exist
         """
         env = EnvironmentService.load_skill_env(skill_name)
         return sorted(env.keys())
+
+    @staticmethod
+    def set_variables(skill_name: str, variables: Dict[str, str], mode: str = "merge") -> None:
+        """
+        Set environment variables in skill's .env file.
+
+        Args:
+            skill_name: Name of the skill
+            variables: Dictionary of key-value pairs to set
+            mode: 'merge' (update existing), 'replace' (overwrite all), 'smart' (merge but warn on conflicts)
+
+        Raises:
+            SkillNotFoundError: If skill doesn't exist
+            EnvFileError: If .env file can't be written
+        """
+        skill_dir = SKILLS_DIR / skill_name
+
+        if not skill_dir.exists():
+            raise SkillNotFoundError(f"Skill '{skill_name}' does not exist")
+
+        if mode == "replace":
+            # Replace entire file
+            content = "\n".join(f"{key}={value}" for key, value in variables.items())
+            EnvironmentService.update_env_file(skill_name, content)
+        else:
+            # Merge mode - load existing vars and update
+            existing_vars = EnvironmentService.load_skill_env(skill_name)
+
+            if mode == "smart":
+                # Check for conflicts (warn if overwriting)
+                conflicts = [key for key in variables.keys() if key in existing_vars]
+                if conflicts:
+                    # For now, just merge - caller can handle warnings
+                    pass
+
+            # Merge variables
+            existing_vars.update(variables)
+
+            # Write back
+            content = "\n".join(f"{key}={value}" for key, value in existing_vars.items())
+            EnvironmentService.update_env_file(skill_name, content)
+
+    @staticmethod
+    def delete_variables(skill_name: str, keys: list[str]) -> None:
+        """
+        Delete specific environment variables from skill's .env file.
+
+        Args:
+            skill_name: Name of the skill
+            keys: List of variable names to delete
+
+        Raises:
+            SkillNotFoundError: If skill doesn't exist
+            EnvFileError: If .env file can't be written
+        """
+        skill_dir = SKILLS_DIR / skill_name
+
+        if not skill_dir.exists():
+            raise SkillNotFoundError(f"Skill '{skill_name}' does not exist")
+
+        # Load existing vars
+        existing_vars = EnvironmentService.load_skill_env(skill_name)
+
+        # Remove specified keys
+        for key in keys:
+            existing_vars.pop(key, None)
+
+        # Write back
+        if existing_vars:
+            content = "\n".join(f"{key}={value}" for key, value in existing_vars.items())
+            EnvironmentService.update_env_file(skill_name, content)
+        else:
+            # Clear the file if no vars left
+            EnvironmentService.update_env_file(skill_name, "")
+
+    @staticmethod
+    def clear_env(skill_name: str) -> None:
+        """
+        Clear all environment variables from skill's .env file.
+
+        Args:
+            skill_name: Name of the skill
+
+        Raises:
+            SkillNotFoundError: If skill doesn't exist
+            EnvFileError: If .env file can't be written
+        """
+        skill_dir = SKILLS_DIR / skill_name
+
+        if not skill_dir.exists():
+            raise SkillNotFoundError(f"Skill '{skill_name}' does not exist")
+
+        EnvironmentService.update_env_file(skill_name, "")

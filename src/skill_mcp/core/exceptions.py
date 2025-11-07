@@ -11,8 +11,18 @@ class SkillNotFoundError(SkillMCPException):
     pass
 
 
+class SkillAlreadyExistsError(SkillMCPException):
+    """Raised when trying to create a skill that already exists."""
+    pass
+
+
 class FileNotFoundError(SkillMCPException):
     """Raised when a file does not exist in a skill."""
+    pass
+
+
+class FileOperationError(SkillMCPException):
+    """Raised when a file operation fails."""
     pass
 
 

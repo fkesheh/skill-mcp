@@ -11,19 +11,15 @@ from mcp.server import Server
 from mcp import types
 import mcp.server.stdio
 
-from skill_mcp.models import (
-    ListSkillsInput,
-    GetSkillDetailsInput,
-    ReadSkillFileInput,
-    CreateSkillFileInput,
-    UpdateSkillFileInput,
-    DeleteSkillFileInput,
-    RunSkillScriptInput,
-    ReadSkillEnvInput,
-    UpdateSkillEnvInput,
+from skill_mcp.models import RunSkillScriptInput
+from skill_mcp.models_crud import (
+    SkillCrudInput,
+    SkillFilesCrudInput,
+    SkillEnvCrudInput,
 )
-from skill_mcp.tools.skill_tools import SkillTools
-from skill_mcp.tools.file_tools import FileTools
+from skill_mcp.tools.skill_crud import SkillCrud
+from skill_mcp.tools.skill_files_crud import SkillFilesCrud
+from skill_mcp.tools.skill_env_crud import SkillEnvCrud
 from skill_mcp.tools.script_tools import ScriptTools
 
 
@@ -35,8 +31,9 @@ app = Server("skill-mcp")
 async def list_tools() -> list[types.Tool]:
     """List available tools."""
     tools = []
-    tools.extend(SkillTools.get_list_tools())
-    tools.extend(FileTools.get_file_tools())
+    tools.extend(SkillCrud.get_tool_definition())
+    tools.extend(SkillFilesCrud.get_tool_definition())
+    tools.extend(SkillEnvCrud.get_tool_definition())
     tools.extend(ScriptTools.get_script_tools())
     return tools
 
@@ -45,41 +42,25 @@ async def list_tools() -> list[types.Tool]:
 async def call_tool(name: str, arguments: Any) -> list[types.TextContent]:
     """Handle tool calls."""
     try:
-        # Skill tools
-        if name == "list_skills":
-            return await SkillTools.list_skills()
-        elif name == "get_skill_details":
-            input_data = GetSkillDetailsInput(**arguments)
-            return await SkillTools.get_skill_details(input_data)
-        
-        # File tools
-        elif name == "read_skill_file":
-            input_data = ReadSkillFileInput(**arguments)
-            return await FileTools.read_skill_file(input_data)
-        elif name == "create_skill_file":
-            input_data = CreateSkillFileInput(**arguments)
-            return await FileTools.create_skill_file(input_data)
-        elif name == "update_skill_file":
-            input_data = UpdateSkillFileInput(**arguments)
-            return await FileTools.update_skill_file(input_data)
-        elif name == "delete_skill_file":
-            input_data = DeleteSkillFileInput(**arguments)
-            return await FileTools.delete_skill_file(input_data)
-        
-        # Script tools
+        # Unified CRUD tools
+        if name == "skill_crud":
+            input_data = SkillCrudInput(**arguments)
+            return await SkillCrud.skill_crud(input_data)
+        elif name == "skill_files_crud":
+            input_data = SkillFilesCrudInput(**arguments)
+            return await SkillFilesCrud.skill_files_crud(input_data)
+        elif name == "skill_env_crud":
+            input_data = SkillEnvCrudInput(**arguments)
+            return await SkillEnvCrud.skill_env_crud(input_data)
+
+        # Script execution tool (unchanged)
         elif name == "run_skill_script":
             input_data = RunSkillScriptInput(**arguments)
             return await ScriptTools.run_skill_script(input_data)
-        elif name == "read_skill_env":
-            input_data = ReadSkillEnvInput(**arguments)
-            return await ScriptTools.read_skill_env(input_data)
-        elif name == "update_skill_env":
-            input_data = UpdateSkillEnvInput(**arguments)
-            return await ScriptTools.update_skill_env(input_data)
-        
+
         else:
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]
-    
+
     except Exception as e:
         return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
