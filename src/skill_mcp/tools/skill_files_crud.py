@@ -21,7 +21,7 @@ class SkillFilesCrud:
 - **read**: Read a file's content
 - **create**: Create one or more files (supports atomic mode for bulk)
 - **update**: Update one or more files
-- **delete**: Delete a file
+- **delete**: Delete a file (SKILL.md is protected and cannot be deleted)
 
 **Single File Examples:**
 ```json

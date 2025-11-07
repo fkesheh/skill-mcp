@@ -59,3 +59,9 @@ class EnvFileError(SkillMCPException):
     """Raised when .env file operations fail."""
 
     pass
+
+
+class ProtectedFileError(SkillMCPException):
+    """Raised when attempting to delete a protected file."""
+
+    pass

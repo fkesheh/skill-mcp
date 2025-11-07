@@ -2,7 +2,7 @@
 
 import pytest
 
-from skill_mcp.core.exceptions import FileNotFoundError, SkillNotFoundError
+from skill_mcp.core.exceptions import FileNotFoundError, ProtectedFileError, SkillNotFoundError
 from skill_mcp.services.file_service import FileService
 
 
@@ -29,3 +29,9 @@ def test_list_skill_files_has_files(sample_skill, temp_skills_dir):
     files = FileService.list_skill_files("test-skill")
     assert len(files) > 0
     assert any("SKILL.md" in f["path"] for f in files)
+
+
+def test_delete_protected_skill_md(sample_skill, temp_skills_dir):
+    """Test that SKILL.md cannot be deleted."""
+    with pytest.raises(ProtectedFileError, match="Cannot delete 'SKILL.md'"):
+        FileService.delete_file("test-skill", "SKILL.md")

@@ -2,8 +2,13 @@
 
 from typing import Any, Dict, List
 
-from skill_mcp.core.config import MAX_FILE_SIZE, SKILLS_DIR
-from skill_mcp.core.exceptions import FileNotFoundError, FileTooBigError, SkillNotFoundError
+from skill_mcp.core.config import MAX_FILE_SIZE, SKILL_METADATA_FILE, SKILLS_DIR
+from skill_mcp.core.exceptions import (
+    FileNotFoundError,
+    FileTooBigError,
+    ProtectedFileError,
+    SkillNotFoundError,
+)
 from skill_mcp.utils.path_utils import validate_path
 
 
@@ -141,7 +146,14 @@ class FileService:
         Raises:
             InvalidPathError: If path is invalid
             FileNotFoundError: If file doesn't exist
+            ProtectedFileError: If attempting to delete a protected file (SKILL.md)
         """
+        # Prevent deletion of SKILL.md
+        if file_path == SKILL_METADATA_FILE or file_path.endswith(f"/{SKILL_METADATA_FILE}"):
+            raise ProtectedFileError(
+                f"Cannot delete '{SKILL_METADATA_FILE}'. This file is protected and required for skill metadata."
+            )
+
         full_path = validate_path(skill_name, file_path)
 
         if not full_path.exists():

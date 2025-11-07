@@ -247,6 +247,26 @@ class TestSkillFilesCrudDelete:
         assert "Error" in result[0].text
         assert "file_path is required" in result[0].text
 
+    @pytest.mark.asyncio
+    async def test_delete_protected_skill_md(self, setup_test_skill):
+        """Test that SKILL.md cannot be deleted through CRUD."""
+        # Verify SKILL.md exists
+        skill_md = SKILLS_DIR / setup_test_skill / "SKILL.md"
+        assert skill_md.exists()
+
+        # Try to delete it
+        input_data = SkillFilesCrudInput(
+            operation="delete", skill_name=setup_test_skill, file_path="SKILL.md"
+        )
+        result = await SkillFilesCrud.skill_files_crud(input_data)
+
+        # Should fail with error
+        assert len(result) == 1
+        assert "Error" in result[0].text
+        assert "protected" in result[0].text.lower() or "cannot delete" in result[0].text.lower()
+        # Verify SKILL.md still exists
+        assert skill_md.exists()
+
 
 class TestSkillFilesCrudInvalidOperation:
     """Tests for invalid operations."""
