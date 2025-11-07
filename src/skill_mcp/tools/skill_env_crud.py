@@ -1,9 +1,9 @@
 """Unified environment variable CRUD tool for MCP server."""
 
 from mcp import types
+
 from skill_mcp.models_crud import SkillEnvCrudInput
 from skill_mcp.services.env_service import EnvironmentService
-from skill_mcp.core.exceptions import SkillNotFoundError, EnvFileError
 
 
 class SkillEnvCrud:
@@ -19,27 +19,26 @@ class SkillEnvCrud:
 
 **Operations:**
 - **read**: Read all environment variable keys (values are hidden for security)
-- **set**: Set one or more environment variables (smart merge by default)
+- **set**: Set one or more environment variables (merges with existing)
 - **delete**: Delete one or more environment variables
 - **clear**: Clear all environment variables
 
-**Read Example:**
-```python
-# Read all env var keys
-{"operation": "read", "skill_name": "my-skill"}
-```
+**Examples:**
+```json
+// Read all env var keys
+{
+  "operation": "read",
+  "skill_name": "my-skill"
+}
 
-**Set Examples:**
-```python
-# Set single variable (smart mode - merges with existing)
+// Set single variable (merges with existing)
 {
   "operation": "set",
   "skill_name": "my-skill",
-  "variables": {"API_KEY": "sk-123"},
-  "mode": "smart"
+  "variables": {"API_KEY": "sk-123"}
 }
 
-# Set multiple variables (bulk)
+// Set multiple variables (bulk merge)
 {
   "operation": "set",
   "skill_name": "my-skill",
@@ -47,48 +46,31 @@ class SkillEnvCrud:
     "API_KEY": "sk-123",
     "DEBUG": "true",
     "TIMEOUT": "30"
-  },
-  "mode": "merge"
+  }
 }
 
-# Replace entire .env file
-{
-  "operation": "set",
-  "skill_name": "my-skill",
-  "variables": {"API_KEY": "sk-123"},
-  "mode": "replace"
-}
-```
-
-**Delete Examples:**
-```python
-# Delete single variable
+// Delete single variable
 {
   "operation": "delete",
   "skill_name": "my-skill",
   "keys": ["API_KEY"]
 }
 
-# Delete multiple variables (bulk)
+// Delete multiple variables
 {
   "operation": "delete",
   "skill_name": "my-skill",
   "keys": ["API_KEY", "DEBUG", "TIMEOUT"]
 }
+
+// Clear all environment variables
+{
+  "operation": "clear",
+  "skill_name": "my-skill"
+}
 ```
 
-**Clear Example:**
-```python
-# Clear all environment variables
-{"operation": "clear", "skill_name": "my-skill"}
-```
-
-**Modes:**
-- **smart** (default): Auto-detect if incremental (single var) or full replacement
-- **merge**: Merge with existing, preserving comments and other variables
-- **replace**: Replace entire .env file
-
-**Context Window Optimization:** This single tool replaces 2 separate tools (read_skill_env, update_skill_env).""",
+**Note:** The 'set' operation always merges with existing variables. To replace everything, use 'clear' first, then 'set'.""",
                 inputSchema=SkillEnvCrudInput.model_json_schema(),
             )
         ]
@@ -108,10 +90,12 @@ class SkillEnvCrud:
             elif operation == "clear":
                 return await SkillEnvCrud._handle_clear(input_data)
             else:
-                return [types.TextContent(
-                    type="text",
-                    text=f"Unknown operation: {operation}. Valid operations: read, set, delete, clear"
-                )]
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=f"Unknown operation: {operation}. Valid operations: read, set, delete, clear",
+                    )
+                ]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
@@ -134,45 +118,49 @@ class SkillEnvCrud:
     async def _handle_set(input_data: SkillEnvCrudInput) -> list[types.TextContent]:
         """Handle set operation (single or bulk)."""
         if not input_data.variables:
-            return [types.TextContent(type="text", text="Error: variables is required for 'set' operation")]
+            return [
+                types.TextContent(
+                    type="text", text="Error: variables is required for 'set' operation"
+                )
+            ]
 
-        mode = input_data.mode or "smart"
         var_count = len(input_data.variables)
+        EnvironmentService.set_variables(input_data.skill_name, input_data.variables)
 
-        # Determine actual mode - for smart mode with many vars, use replace
-        if mode == "smart" and var_count > 5:
-            actual_mode = "replace"
-        elif mode == "smart":
-            actual_mode = "merge"
-        else:
-            actual_mode = mode
-
-        EnvironmentService.set_variables(input_data.skill_name, input_data.variables, actual_mode)
-
-        return [types.TextContent(
-            type="text",
-            text=f"Successfully set {var_count} environment variable(s) for skill '{input_data.skill_name}' (mode: {actual_mode})"
-        )]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"Successfully set {var_count} environment variable(s) for skill '{input_data.skill_name}'",
+            )
+        ]
 
     @staticmethod
     async def _handle_delete(input_data: SkillEnvCrudInput) -> list[types.TextContent]:
         """Handle delete operation (single or bulk)."""
         if not input_data.keys:
-            return [types.TextContent(type="text", text="Error: keys is required for 'delete' operation")]
+            return [
+                types.TextContent(
+                    type="text", text="Error: keys is required for 'delete' operation"
+                )
+            ]
 
         EnvironmentService.delete_variables(input_data.skill_name, input_data.keys)
 
-        return [types.TextContent(
-            type="text",
-            text=f"Successfully deleted {len(input_data.keys)} environment variable(s) from skill '{input_data.skill_name}'"
-        )]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"Successfully deleted {len(input_data.keys)} environment variable(s) from skill '{input_data.skill_name}'",
+            )
+        ]
 
     @staticmethod
     async def _handle_clear(input_data: SkillEnvCrudInput) -> list[types.TextContent]:
         """Handle clear operation."""
         EnvironmentService.clear_env(input_data.skill_name)
 
-        return [types.TextContent(
-            type="text",
-            text=f"Successfully cleared all environment variables for skill '{input_data.skill_name}'"
-        )]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"Successfully cleared all environment variables for skill '{input_data.skill_name}'",
+            )
+        ]

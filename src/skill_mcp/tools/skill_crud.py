@@ -1,9 +1,10 @@
 """Unified skill CRUD tool for MCP server."""
 
 from mcp import types
+
+from skill_mcp.core.exceptions import SkillAlreadyExistsError, SkillNotFoundError
 from skill_mcp.models_crud import SkillCrudInput
 from skill_mcp.services.skill_service import SkillService
-from skill_mcp.core.exceptions import SkillNotFoundError, SkillAlreadyExistsError
 
 
 class SkillCrud:
@@ -25,27 +26,25 @@ class SkillCrud:
 - **delete**: Delete a skill directory (requires confirm=true)
 
 **Examples:**
-```python
-# Create a Python skill
+```json
+// Create a Python skill
 {"operation": "create", "skill_name": "my-skill", "description": "My skill", "template": "python"}
 
-# List all skills
+// List all skills
 {"operation": "list"}
 
-# Search skills
+// Search skills
 {"operation": "list", "search": "weather"}
 
-# Get skill details
+// Get skill details
 {"operation": "get", "skill_name": "my-skill", "include_content": true}
 
-# Validate skill
+// Validate skill
 {"operation": "validate", "skill_name": "my-skill"}
 
-# Delete skill
+// Delete skill
 {"operation": "delete", "skill_name": "my-skill", "confirm": true}
-```
-
-**Context Window Optimization:** This single tool replaces 5 separate tools (create_skill, list_skills, get_skill_details, validate_skill, delete_skill).""",
+```""",
                 inputSchema=SkillCrudInput.model_json_schema(),
             )
         ]
@@ -67,10 +66,12 @@ class SkillCrud:
             elif operation == "create":
                 return await SkillCrud._handle_create(input_data)
             else:
-                return [types.TextContent(
-                    type="text",
-                    text=f"Unknown operation: {operation}. Valid operations: create, list, get, validate, delete"
-                )]
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=f"Unknown operation: {operation}. Valid operations: create, list, get, validate, delete",
+                    )
+                ]
         except Exception as e:
             return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
@@ -83,11 +84,19 @@ class SkillCrud:
         skills = all_skills
         if input_data.search:
             import re
+
             skills = [
-                s for s in all_skills
-                if (input_data.search.lower() in s.name.lower() or
-                    input_data.search.lower() in (s.description or "").lower() or
-                    (re.search(input_data.search, s.name, re.IGNORECASE) if input_data.search.startswith("^") or "*" in input_data.search else False))
+                s
+                for s in all_skills
+                if (
+                    input_data.search.lower() in s.name.lower()
+                    or input_data.search.lower() in (s.description or "").lower()
+                    or (
+                        re.search(input_data.search, s.name, re.IGNORECASE)
+                        if input_data.search.startswith("^") or "*" in input_data.search
+                        else False
+                    )
+                )
             ]
 
         if not skills:
@@ -113,7 +122,11 @@ class SkillCrud:
     async def _handle_get(input_data: SkillCrudInput) -> list[types.TextContent]:
         """Handle get operation."""
         if not input_data.skill_name:
-            return [types.TextContent(type="text", text="Error: skill_name is required for 'get' operation")]
+            return [
+                types.TextContent(
+                    type="text", text="Error: skill_name is required for 'get' operation"
+                )
+            ]
 
         details = SkillService.get_skill_details(input_data.skill_name)
 
@@ -146,7 +159,7 @@ class SkillCrud:
                 result += "\n"
 
         # Environment variables
-        result += f"\nEnvironment Variables:\n"
+        result += "\nEnvironment Variables:\n"
         if details.env_vars:
             for var in details.env_vars:
                 result += f"  - {var}\n"
@@ -161,17 +174,21 @@ class SkillCrud:
     async def _handle_validate(input_data: SkillCrudInput) -> list[types.TextContent]:
         """Handle validate operation."""
         if not input_data.skill_name:
-            return [types.TextContent(type="text", text="Error: skill_name is required for 'validate' operation")]
+            return [
+                types.TextContent(
+                    type="text", text="Error: skill_name is required for 'validate' operation"
+                )
+            ]
 
         # Simple validation: check if skill exists and has SKILL.md
-        from skill_mcp.core.config import SKILLS_DIR, SKILL_METADATA_FILE
+        from skill_mcp.core.config import SKILL_METADATA_FILE, SKILLS_DIR
 
         skill_dir = SKILLS_DIR / input_data.skill_name
         if not skill_dir.exists():
             raise SkillNotFoundError(f"Skill '{input_data.skill_name}' does not exist")
 
-        errors = []
-        warnings = []
+        errors: list[str] = []
+        warnings: list[str] = []
 
         # Check for SKILL.md
         skill_md = skill_dir / SKILL_METADATA_FILE
@@ -180,7 +197,11 @@ class SkillCrud:
         else:
             # Try to parse YAML frontmatter
             try:
-                from skill_mcp.utils.yaml_parser import parse_yaml_frontmatter, get_skill_description
+                from skill_mcp.utils.yaml_parser import (
+                    get_skill_description,
+                    parse_yaml_frontmatter,
+                )
+
                 content = skill_md.read_text()
                 metadata = parse_yaml_frontmatter(content)
                 if not metadata:
@@ -214,16 +235,23 @@ class SkillCrud:
     async def _handle_delete(input_data: SkillCrudInput) -> list[types.TextContent]:
         """Handle delete operation."""
         if not input_data.skill_name:
-            return [types.TextContent(type="text", text="Error: skill_name is required for 'delete' operation")]
+            return [
+                types.TextContent(
+                    type="text", text="Error: skill_name is required for 'delete' operation"
+                )
+            ]
 
         if not input_data.confirm:
-            return [types.TextContent(
-                type="text",
-                text=f"Error: confirm=true is required to delete skill '{input_data.skill_name}'"
-            )]
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"Error: confirm=true is required to delete skill '{input_data.skill_name}'",
+                )
+            ]
 
         # Delete skill directory
         import shutil
+
         from skill_mcp.core.config import SKILLS_DIR
 
         skill_dir = SKILLS_DIR / input_data.skill_name
@@ -232,19 +260,24 @@ class SkillCrud:
 
         shutil.rmtree(skill_dir)
 
-        return [types.TextContent(
-            type="text",
-            text=f"Successfully deleted skill '{input_data.skill_name}'"
-        )]
+        return [
+            types.TextContent(
+                type="text", text=f"Successfully deleted skill '{input_data.skill_name}'"
+            )
+        ]
 
     @staticmethod
     async def _handle_create(input_data: SkillCrudInput) -> list[types.TextContent]:
         """Handle create operation."""
         if not input_data.skill_name:
-            return [types.TextContent(type="text", text="Error: skill_name is required for 'create' operation")]
+            return [
+                types.TextContent(
+                    type="text", text="Error: skill_name is required for 'create' operation"
+                )
+            ]
 
         # Create skill directory with SKILL.md
-        from skill_mcp.core.config import SKILLS_DIR, SKILL_METADATA_FILE
+        from skill_mcp.core.config import SKILL_METADATA_FILE, SKILLS_DIR
 
         skill_dir = SKILLS_DIR / input_data.skill_name
         if skill_dir.exists():
@@ -272,7 +305,8 @@ description: {description}
         # Add template-specific files
         if input_data.template == "python":
             script_path = skill_dir / "main.py"
-            script_path.write_text("""#!/usr/bin/env python3
+            script_path.write_text(
+                """#!/usr/bin/env python3
 '''Main script for {skill_name}.'''
 
 def main():
@@ -280,21 +314,26 @@ def main():
 
 if __name__ == "__main__":
     main()
-""".format(skill_name=input_data.skill_name))
+""".format(skill_name=input_data.skill_name)
+            )
             files_created.append("main.py")
 
         elif input_data.template == "bash":
             script_path = skill_dir / "main.sh"
-            script_path.write_text("""#!/usr/bin/env bash
+            script_path.write_text(
+                """#!/usr/bin/env bash
 # Main script for {skill_name}
 
 echo "Hello from {skill_name}!"
-""".format(skill_name=input_data.skill_name))
+""".format(skill_name=input_data.skill_name)
+            )
             script_path.chmod(0o755)
             files_created.append("main.sh")
 
-        return [types.TextContent(
-            type="text",
-            text=f"Successfully created skill '{input_data.skill_name}' with {len(files_created)} files:\n" +
-                 "\n".join(f"  - {f}" for f in files_created)
-        )]
+        return [
+            types.TextContent(
+                type="text",
+                text=f"Successfully created skill '{input_data.skill_name}' with {len(files_created)} files:\n"
+                + "\n".join(f"  - {f}" for f in files_created),
+            )
+        ]
