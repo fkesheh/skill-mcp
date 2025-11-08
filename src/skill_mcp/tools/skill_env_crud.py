@@ -144,12 +144,23 @@ class SkillEnvCrud:
                 )
             ]
 
-        EnvironmentService.delete_variables(input_data.skill_name, input_data.keys)
+        deleted_count = EnvironmentService.delete_variables(input_data.skill_name, input_data.keys)
+
+        # Provide accurate feedback about what was actually deleted
+        if deleted_count == len(input_data.keys):
+            # All requested variables were deleted
+            message = f"Successfully deleted {deleted_count} environment variable(s) from skill '{input_data.skill_name}'"
+        elif deleted_count == 0:
+            # None of the requested variables existed
+            message = f"No variables deleted from skill '{input_data.skill_name}' (variables did not exist)"
+        else:
+            # Some existed, some didn't
+            message = f"Deleted {deleted_count} of {len(input_data.keys)} environment variable(s) from skill '{input_data.skill_name}' ({len(input_data.keys) - deleted_count} did not exist)"
 
         return [
             types.TextContent(
                 type="text",
-                text=f"Successfully deleted {len(input_data.keys)} environment variable(s) from skill '{input_data.skill_name}'",
+                text=message,
             )
         ]
 

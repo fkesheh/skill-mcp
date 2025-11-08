@@ -2,9 +2,14 @@
 
 from mcp import types
 
-from skill_mcp.core.exceptions import SkillAlreadyExistsError, SkillNotFoundError
+from skill_mcp.core.exceptions import (
+    InvalidTemplateError,
+    SkillAlreadyExistsError,
+    SkillNotFoundError,
+)
 from skill_mcp.models_crud import SkillCrudInput
 from skill_mcp.services.skill_service import SkillService
+from skill_mcp.services.template_service import TemplateRegistry
 
 
 class SkillCrud:
@@ -19,14 +24,18 @@ class SkillCrud:
                 description="""Unified CRUD tool for skill management.
 
 **Operations:**
-- **create**: Create a new skill with templates (basic, python, bash, api-client)
+- **create**: Create a new skill with templates (basic, python, bash)
 - **list**: List all skills with optional search (supports text and regex)
 - **get**: Get detailed information about a specific skill
 - **validate**: Validate skill structure and get diagnostics
 - **delete**: Delete a skill directory (requires confirm=true)
+- **list_templates**: List all available skill templates with descriptions
 
 **Examples:**
 ```json
+// List available templates
+{"operation": "list_templates"}
+
 // Create a Python skill
 {"operation": "create", "skill_name": "my-skill", "description": "My skill", "template": "python"}
 
@@ -65,11 +74,13 @@ class SkillCrud:
                 return await SkillCrud._handle_delete(input_data)
             elif operation == "create":
                 return await SkillCrud._handle_create(input_data)
+            elif operation == "list_templates":
+                return await SkillCrud._handle_list_templates(input_data)
             else:
                 return [
                     types.TextContent(
                         type="text",
-                        text=f"Unknown operation: {operation}. Valid operations: create, list, get, validate, delete",
+                        text=f"Unknown operation: {operation}. Valid operations: create, list, get, validate, delete, list_templates",
                     )
                 ]
         except Exception as e:
@@ -267,6 +278,25 @@ class SkillCrud:
         ]
 
     @staticmethod
+    async def _handle_list_templates(
+        input_data: SkillCrudInput,
+    ) -> list[types.TextContent]:
+        """Handle list_templates operation."""
+        templates = TemplateRegistry.list_templates()
+
+        result = f"Available templates ({len(templates)}):\n\n"
+
+        for name, spec in templates.items():
+            result += f"**{name}**\n"
+            result += f"  Description: {spec.description}\n"
+            result += f"  Files: {', '.join(spec.files)}\n\n"
+
+        result += "Use template name in 'create' operation:\n"
+        result += '  {"operation": "create", "skill_name": "my-skill", "template": "python"}'
+
+        return [types.TextContent(type="text", text=result)]
+
+    @staticmethod
     async def _handle_create(input_data: SkillCrudInput) -> list[types.TextContent]:
         """Handle create operation."""
         if not input_data.skill_name:
@@ -275,6 +305,13 @@ class SkillCrud:
                     type="text", text="Error: skill_name is required for 'create' operation"
                 )
             ]
+
+        # Validate template
+        template = input_data.template or "basic"
+        try:
+            TemplateRegistry.validate_template(template)
+        except InvalidTemplateError as e:
+            return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
         # Create skill directory with SKILL.md
         from skill_mcp.core.config import SKILL_METADATA_FILE, SKILLS_DIR

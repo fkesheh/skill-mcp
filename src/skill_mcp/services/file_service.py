@@ -90,9 +90,18 @@ class FileService:
             content: File content
 
         Raises:
+            SkillNotFoundError: If skill doesn't exist
             InvalidPathError: If path is invalid
             FileNotFoundError: If file already exists
         """
+        # Check if skill exists first
+        skill_dir = SKILLS_DIR / skill_name
+        if not skill_dir.exists():
+            raise SkillNotFoundError(f"Skill '{skill_name}' does not exist")
+
+        if not skill_dir.is_dir():
+            raise SkillNotFoundError(f"'{skill_name}' is not a directory")
+
         full_path = validate_path(skill_name, file_path)
 
         if full_path.exists():
@@ -118,9 +127,18 @@ class FileService:
             content: New file content
 
         Raises:
+            SkillNotFoundError: If skill doesn't exist
             InvalidPathError: If path is invalid
             FileNotFoundError: If file doesn't exist
         """
+        # Check if skill exists first
+        skill_dir = SKILLS_DIR / skill_name
+        if not skill_dir.exists():
+            raise SkillNotFoundError(f"Skill '{skill_name}' does not exist")
+
+        if not skill_dir.is_dir():
+            raise SkillNotFoundError(f"'{skill_name}' is not a directory")
+
         full_path = validate_path(skill_name, file_path)
 
         if not full_path.exists():
@@ -144,6 +162,7 @@ class FileService:
             file_path: Relative path to the file
 
         Raises:
+            SkillNotFoundError: If skill doesn't exist
             InvalidPathError: If path is invalid
             FileNotFoundError: If file doesn't exist
             ProtectedFileError: If attempting to delete a protected file (SKILL.md)
@@ -153,6 +172,14 @@ class FileService:
             raise ProtectedFileError(
                 f"Cannot delete '{SKILL_METADATA_FILE}'. This file is protected and required for skill metadata."
             )
+
+        # Check if skill exists first
+        skill_dir = SKILLS_DIR / skill_name
+        if not skill_dir.exists():
+            raise SkillNotFoundError(f"Skill '{skill_name}' does not exist")
+
+        if not skill_dir.is_dir():
+            raise SkillNotFoundError(f"'{skill_name}' is not a directory")
 
         full_path = validate_path(skill_name, file_path)
 

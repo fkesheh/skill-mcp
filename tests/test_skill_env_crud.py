@@ -178,6 +178,51 @@ class TestSkillEnvCrudDelete:
         assert "Error" in result[0].text
         assert "keys is required" in result[0].text
 
+    @pytest.mark.asyncio
+    async def test_delete_nonexistent_variable_is_idempotent(self, setup_test_skill):
+        """Test deleting non-existent variables is idempotent (no error)."""
+        # Create env file with one var
+        env_file = SKILLS_DIR / setup_test_skill / ENV_FILE_NAME
+        env_file.write_text("API_KEY=sk-123\n")
+
+        # Try to delete a variable that doesn't exist
+        input_data = SkillEnvCrudInput(
+            operation="delete", skill_name=setup_test_skill, keys=["NONEXISTENT_VAR"]
+        )
+        result = await SkillEnvCrud.skill_env_crud(input_data)
+
+        # Should succeed (idempotent behavior like rm -f)
+        assert len(result) == 1
+        assert "Error" not in result[0].text
+
+        # Original variable should still exist
+        content = env_file.read_text()
+        assert "API_KEY=sk-123" in content
+
+    @pytest.mark.asyncio
+    async def test_delete_mix_of_existent_and_nonexistent_variables(self, setup_test_skill):
+        """Test deleting a mix of existing and non-existing variables."""
+        # Create env file with vars
+        env_file = SKILLS_DIR / setup_test_skill / ENV_FILE_NAME
+        env_file.write_text("API_KEY=sk-123\nDEBUG=true\n")
+
+        # Delete one that exists and one that doesn't
+        input_data = SkillEnvCrudInput(
+            operation="delete",
+            skill_name=setup_test_skill,
+            keys=["DEBUG", "NONEXISTENT_VAR", "ANOTHER_FAKE"],
+        )
+        result = await SkillEnvCrud.skill_env_crud(input_data)
+
+        # Should succeed (idempotent)
+        assert len(result) == 1
+        assert "Error" not in result[0].text
+
+        # Only DEBUG should be deleted, API_KEY remains
+        content = env_file.read_text()
+        assert "API_KEY=sk-123" in content
+        assert "DEBUG" not in content
+
 
 class TestSkillEnvCrudClear:
     """Tests for clear operation."""

@@ -82,3 +82,24 @@ def skill_with_env(sample_skill):
     env_file = sample_skill / ".env"
     env_file.write_text("API_KEY=test-key\nDATABASE_URL=postgresql://localhost/db\n")
     return sample_skill
+
+
+@pytest.fixture
+def test_skill_name():
+    """Generate unique skill name to prevent test interference."""
+    import uuid
+
+    return f"test-skill-{uuid.uuid4().hex[:8]}"
+
+
+@pytest.fixture
+def cleanup_test_skill(test_skill_name):
+    """Cleanup test skill after test."""
+    yield
+    from skill_mcp.core.config import SKILLS_DIR
+
+    skill_dir = SKILLS_DIR / test_skill_name
+    if skill_dir.exists():
+        import shutil
+
+        shutil.rmtree(skill_dir)

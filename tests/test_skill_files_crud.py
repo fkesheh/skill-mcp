@@ -36,6 +36,25 @@ class TestSkillFilesCrudCreate:
     """Tests for create operation."""
 
     @pytest.mark.asyncio
+    async def test_create_file_in_nonexistent_skill(self):
+        """Test that creating file in non-existent skill raises error."""
+        input_data = SkillFilesCrudInput(
+            operation="create",
+            skill_name="nonexistent-skill-xyz",
+            file_path="test.py",
+            content="print('hello')",
+        )
+        result = await SkillFilesCrud.skill_files_crud(input_data)
+
+        # Should raise error, not create invalid skill
+        assert "Error" in result[0].text
+        assert "does not exist" in result[0].text or "not found" in result[0].text.lower()
+
+        # Verify skill was NOT created
+        skill_dir = SKILLS_DIR / "nonexistent-skill-xyz"
+        assert not skill_dir.exists(), "Bug: Skill directory should not be created"
+
+    @pytest.mark.asyncio
     async def test_create_single_file(self, setup_test_skill):
         """Test creating a single file."""
         input_data = SkillFilesCrudInput(

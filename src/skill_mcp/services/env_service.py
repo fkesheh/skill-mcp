@@ -148,13 +148,16 @@ class EnvironmentService:
         EnvironmentService.update_env_file(skill_name, content)
 
     @staticmethod
-    def delete_variables(skill_name: str, keys: list[str]) -> None:
+    def delete_variables(skill_name: str, keys: list[str]) -> int:
         """
         Delete specific environment variables from skill's .env file.
 
         Args:
             skill_name: Name of the skill
             keys: List of variable names to delete
+
+        Returns:
+            Number of variables actually deleted
 
         Raises:
             SkillNotFoundError: If skill doesn't exist
@@ -168,9 +171,14 @@ class EnvironmentService:
         # Load existing vars
         existing_vars = EnvironmentService.load_skill_env(skill_name)
 
+        # Track how many were actually deleted
+        deleted_count = 0
+
         # Remove specified keys
         for key in keys:
-            existing_vars.pop(key, None)
+            if key in existing_vars:
+                existing_vars.pop(key)
+                deleted_count += 1
 
         # Write back
         if existing_vars:
@@ -179,6 +187,8 @@ class EnvironmentService:
         else:
             # Clear the file if no vars left
             EnvironmentService.update_env_file(skill_name, "")
+
+        return deleted_count
 
     @staticmethod
     def clear_env(skill_name: str) -> None:
