@@ -127,5 +127,4 @@ class SkillSummary(BaseModel):
 
     name: str
     description: str
-    path: str
     has_skill_md: bool

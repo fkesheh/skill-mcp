@@ -215,7 +215,9 @@ IMPORTANT NOTES:
                 modified_dt = datetime.fromtimestamp(file.modified)
                 modified_str = f", modified: {modified_dt.strftime('%Y-%m-%d')}"
 
-            result += f"  - {file.path} ({file.size} bytes{modified_str})"
+            # Use namespaced path format
+            namespaced_path = f"{details.name}:{file.path}"
+            result += f"  - {namespaced_path} ({file.size} bytes{modified_str})"
             if file.is_executable:
                 result += " [executable]"
                 if file.has_uv_deps is not None:
@@ -226,7 +228,9 @@ IMPORTANT NOTES:
         if details.scripts:
             result += f"\nScripts ({len(details.scripts)}):\n"
             for script in details.scripts:
-                result += f"  - {script.path} ({script.type})"
+                # Use namespaced path format
+                namespaced_path = f"{details.name}:{script.path}"
+                result += f"  - {namespaced_path} ({script.type})"
                 if script.has_uv_deps:
                     result += " [has uv dependencies]"
                 result += "\n"

@@ -58,7 +58,9 @@ class SkillService:
                 pass
 
         return SkillSummary(
-            name=skill_name, description=description, path=str(skill_dir), has_skill_md=has_skill_md
+            name=skill_name,
+            description=description,
+            has_skill_md=has_skill_md,
         )
 
     @staticmethod
