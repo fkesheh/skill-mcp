@@ -5,15 +5,15 @@ A Model Context Protocol (MCP) server that enables Claude to manage skills store
 ## Quick Status
 
 **Status:** ✅ Production Ready
-**Test Coverage:** 82% (78/78 tests passing)
+**Test Coverage:** 86% (145/145 tests passing)
 **Deployed:** October 18, 2025
-**Architecture:** 19-module modular Python package
+**Architecture:** 22-module modular Python package with unified CRUD architecture
 
 ## Overview
 
 This project consists of two main components:
 
-1. **MCP Server** (`src/skill_mcp/server.py`) - A refactored Python package providing 9 tools for skill management
+1. **MCP Server** (`src/skill_mcp/server.py`) - A Python package providing 5 unified CRUD tools for skill management
 2. **Skills Directory** (`~/.skill-mcp/skills/`) - Where you store and manage your skills
 
 ## Key Advantages
@@ -100,6 +100,14 @@ Instead of manually copying, zipping, and uploading files:
 - ✅ Capture stdout and stderr
 - ✅ 30-second timeout for safety
 
+### Direct Python Execution
+- ✅ **Execute Python code directly** without creating script files
+- ✅ **Cross-skill imports** - Import modules from other skills as reusable libraries
+- ✅ **Automatic dependency aggregation** - Dependencies from imported skills are automatically included
+- ✅ **Environment variable loading** - .env files from referenced skills are automatically loaded
+- ✅ **PEP 723 support** - Inline dependency declarations in code
+- ✅ Perfect for quick experiments, data analysis, and building on existing skill libraries
+
 ### Environment Variables
 - ✅ List environment variable keys (secure - no values shown)
 - ✅ Set or update environment variables per skill
@@ -110,7 +118,6 @@ Instead of manually copying, zipping, and uploading files:
 
 ```
 ~/.skill-mcp/
-├── skill_mcp_server.py          # The MCP server (you install this)
 └── skills/                       # Your skills directory
     ├── example-skill/
     │   ├── SKILL.md             # Required: skill definition
@@ -122,6 +129,8 @@ Instead of manually copying, zipping, and uploading files:
         ├── SKILL.md
         └── .env
 ```
+
+**Note:** The MCP server is installed via `uvx` from PyPI and runs automatically. No local server file needed!
 
 ## Quick Start
 
@@ -193,7 +202,9 @@ uv run pytest tests/ -v   # Run tests
 
 ## Script Dependencies (PEP 723)
 
-Python scripts can declare their own dependencies using uv's inline metadata. The server automatically detects this and uses `uv run` to handle dependencies:
+**✅ BOTH `run_skill_script` AND `execute_python_code` support PEP 723!**
+
+Python scripts and code can declare their own dependencies using uv's inline metadata. The server automatically detects this and uses `uv run` to handle dependencies:
 
 ```python
 #!/usr/bin/env python3
@@ -215,16 +226,24 @@ print(df.head())
 
 **Benefits:**
 - ✅ No manual dependency installation needed
-- ✅ Each script has isolated dependencies
-- ✅ Works automatically when run via `run_skill_script`
+- ✅ Each script/code execution has isolated dependencies
+- ✅ Works automatically with **both** `run_skill_script` and `execute_python_code`
 - ✅ Version pinning ensures reproducibility
+- ✅ `execute_python_code` ALSO aggregates dependencies from skill imports!
 
-**How it works:**
-1. You add inline metadata to your Python script
+**How it works with `run_skill_script`:**
+1. You add inline metadata to your Python script file
 2. When the script runs via `run_skill_script`, the server detects the metadata
 3. uv automatically creates an isolated environment and installs dependencies
 4. The script runs with access to those dependencies
 5. No manual `pip install` or virtual environment management needed!
+
+**How it works with `execute_python_code`:**
+1. Include PEP 723 metadata directly in your code string
+2. The server automatically detects the metadata
+3. uv creates an isolated environment and installs dependencies
+4. Your code runs with access to those dependencies
+5. **BONUS:** If you import from skill files, their PEP 723 dependencies are automatically aggregated too!
 
 **Example:** See `example-skill/scripts/fetch_data.py` for a working example.
 
@@ -233,6 +252,108 @@ print(df.head())
 # Scripts with dependencies just work!
 uv run example-skill/scripts/fetch_data.py
 ```
+
+## Direct Python Code Execution
+
+The `execute_python_code` tool allows you to run Python code directly without creating files. This is perfect for quick experiments, data analysis, and building reusable skill libraries.
+
+### Basic Usage
+
+```python
+# Simple inline execution with dependencies
+# /// script
+# dependencies = [
+#   "requests>=2.31.0",
+# ]
+# ///
+
+import requests
+response = requests.get("https://api.example.com/data")
+print(response.json())
+```
+
+### Cross-Skill Imports (Building Reusable Libraries)
+
+Create utility skills once and import them anywhere:
+
+**Step 1: Create a calculator skill with reusable modules**
+```python
+# calculator:math_utils.py
+def add(a, b):
+    return a + b
+
+def multiply(a, b):
+    return a * b
+```
+
+**Step 2: Import and use in your code**
+```python
+# Execute this code with skill_references: ["calculator:math_utils.py"]
+from math_utils import add, multiply
+
+result = add(10, 20)
+product = multiply(5, 6)
+print(f"Sum: {result}, Product: {product}")
+```
+
+### Automatic Dependency Aggregation
+
+When you import from skill modules that have PEP 723 dependencies, they're automatically included:
+
+**Library skill with dependencies:**
+```python
+# data-processor:json_fetcher.py
+# /// script
+# dependencies = ["requests>=2.31.0"]
+# ///
+import requests
+def fetch_json(url):
+    return requests.get(url).json()
+```
+
+**Your code - NO need to redeclare requests!**
+```python
+# Execute with skill_references: ["data-processor:json_fetcher.py"]
+from json_fetcher import fetch_json
+data = fetch_json('https://api.example.com')
+print(data)
+# Dependencies from json_fetcher.py are automatically aggregated!
+```
+
+### Environment Variables from Referenced Skills
+
+When you import from a skill, its environment variables are **automatically loaded**:
+
+**Skill with API credentials:**
+```bash
+# weather-skill/.env
+API_KEY=your-secret-api-key
+API_URL=https://api.weatherapi.com
+```
+
+**Your code - env vars automatically available:**
+```python
+# Execute with skill_references: ["weather-skill:api_client.py"]
+from api_client import fetch_weather
+
+# api_client.py can access API_KEY and API_URL from its .env file
+data = fetch_weather('London')
+print(data)
+```
+
+**Benefits:**
+- ✅ No need to manually load .env files
+- ✅ Each skill's secrets stay isolated
+- ✅ Multiple skills' env vars are merged automatically
+- ✅ Later skills override earlier ones if there are conflicts
+
+### Use Cases
+
+- ✅ **Quick data analysis** - Run pandas/numpy code without creating files
+- ✅ **API testing** - Test HTTP requests with inline dependencies
+- ✅ **Reusable libraries** - Build once, import everywhere
+- ✅ **Rapid prototyping** - Experiment with code before committing to files
+- ✅ **Cross-skill workflows** - Combine utilities from multiple skills
 
 ## Usage Examples
 
@@ -283,19 +404,21 @@ Claude will:
 
 ## Available MCP Tools
 
-The server provides these tools to Claude:
+The server provides these unified CRUD tools to Claude:
 
-| Tool              | Purpose |
-|-------------------|---------|
-| `list_skills`     | List all skills in ~/.skill-mcp/skills |
-| `get_skill_details` | Get comprehensive details about a specific skill |
-| `read_skill_file` | Read content of a skill file |
-| `create_skill_file` | Create a new file in a skill |
-| `update_skill_file` | Update an existing skill file |
-| `delete_skill_file` | Delete a skill file |
-| `run_skill_script` | Execute a script with environment variables |
-| `read_skill_env`  | List environment variable keys for a skill (values hidden) |
-| `update_skill_env`| Create/update a skill's .env file |
+| Tool              | Purpose | PEP 723 Support |
+|-------------------|---------|-----------------|
+| `skill_crud`      | Unified skill operations: list, get, create, delete, validate, list_templates | N/A |
+| `skill_files_crud` | Unified file operations: read, create, update, delete (supports bulk operations) | N/A |
+| `skill_env_crud`  | Unified environment variable operations: read, set, delete, clear | N/A |
+| `run_skill_script` | Execute scripts (.py, .js, .sh) with automatic dependency detection | ✅ YES - Auto-detects PEP 723 in Python scripts |
+| `execute_python_code` | Execute Python code directly without files (cross-skill imports) | ✅ YES - PEP 723 PLUS dependency aggregation |
+
+**Key Benefits of CRUD Architecture:**
+- ✅ **Reduced context window usage** - 5 tools instead of 9+
+- ✅ **Consistent operation patterns** - All tools follow the same CRUD model
+- ✅ **Bulk operations** - Create/update/delete multiple files atomically
+- ✅ **Better error handling** - Unified error responses across all operations
 
 ## Security Features
 
@@ -342,24 +465,33 @@ find ~/.skill-mcp/skills -name ".env" -exec chmod 600 {} \;
 - Check the .env file exists: `cat ~/.skill-mcp/skills/<skill-name>/.env`
 - Ensure your script is reading from `os.environ`
 
-## Advanced: Tool Descriptions for LLMs
+## Advanced: CRUD Tool Operations
 
-All MCP tools have been enhanced with detailed descriptions to prevent confusion:
+All MCP tools follow a unified CRUD architecture with detailed descriptions:
 
-### Skill Tools
-- **list_skills** - Lists all skills with descriptions, paths, and validation status
-- **get_skill_details** - Complete skill information: SKILL.md content, all files, scripts, environment variables
+### skill_crud Operations
+- **list** - List all skills with descriptions, paths, and validation status (supports text/regex search)
+- **get** - Get comprehensive skill information: SKILL.md content, all files, scripts, environment variables
+- **create** - Create new skill from template (basic, python, bash, nodejs)
+- **delete** - Delete a skill directory (requires confirmation)
+- **validate** - Validate skill structure and get diagnostics
+- **list_templates** - List all available skill templates with descriptions
 
-### File Tools
-- **read_skill_file** - Read any file in a skill directory
-- **create_skill_file** - Create new files (auto-creates parent directories)
-- **update_skill_file** - Update existing files (replaces entire content)
-- **delete_skill_file** - Delete files permanently (path-traversal protected)
+### skill_files_crud Operations
+- **read** - Read one or multiple files in a skill directory (supports bulk reads)
+- **create** - Create one or more files (auto-creates parent directories, supports atomic bulk creation)
+- **update** - Update one or more existing files (supports bulk updates)
+- **delete** - Delete a file permanently (path-traversal protected, SKILL.md cannot be deleted)
 
-### Script Tools
-- **run_skill_script** - Execute scripts with automatic PEP 723 dependency detection
-- **read_skill_env** - List environment variables for a skill (keys only, values hidden for security)
-- **update_skill_env** - Create/update a skill's .env file
+### skill_env_crud Operations
+- **read** - List environment variable keys for a skill (values hidden for security)
+- **set** - Set one or more environment variables (merges with existing)
+- **delete** - Delete one or more environment variables
+- **clear** - Clear all environment variables for a skill
+
+### Script Execution
+- **run_skill_script** - Execute scripts with automatic PEP 723 dependency detection and environment variable injection
+- **execute_python_code** - Execute Python code directly without files (supports PEP 723 dependencies and cross-skill imports)
 
 ## Advanced Configuration
 
@@ -424,99 +556,114 @@ To modify these limits, you'll need to fork the repository and adjust the consta
 ```
 src/skill_mcp/
 ├── server.py              # MCP server entry point
-├── models.py              # Pydantic input/output models
+├── models.py              # Pydantic input/output models (backward compat)
+├── models_crud.py         # Unified CRUD input models
 ├── core/
 │   ├── config.py          # Configuration constants
 │   └── exceptions.py      # Custom exception types
 ├── services/
-│   ├── env_service.py     # .env file management
-│   ├── file_service.py    # File operations
+│   ├── env_service.py     # Environment variable CRUD
+│   ├── file_service.py    # File CRUD operations
 │   ├── skill_service.py   # Skill discovery & metadata
-│   └── script_service.py  # Script execution
+│   ├── script_service.py  # Script execution & PEP 723
+│   └── template_service.py # Template management
 ├── utils/
 │   ├── path_utils.py      # Secure path validation
 │   ├── yaml_parser.py     # YAML frontmatter parsing
 │   └── script_detector.py # Script capability detection
 └── tools/
-    ├── skill_tools.py     # Skill management tools
-    ├── file_tools.py      # File operation tools
+    ├── skill_crud.py      # Unified skill CRUD tool
+    ├── skill_files_crud.py # Unified file CRUD tool
+    ├── skill_env_crud.py  # Unified env CRUD tool
     └── script_tools.py    # Script execution tools
 
 tests/
 ├── conftest.py            # Pytest fixtures
-└── 9 test modules         # 78 tests (82% coverage passing)
+└── 20+ test modules       # 145 tests (86% coverage passing)
 ```
 
 ### What's New
 
-**Enhanced Features:**
-- ✅ Skill descriptions extracted from YAML frontmatter
-- ✅ Comprehensive skill details (files, scripts, metadata)
-- ✅ File type detection (Python, Markdown, etc.)
-- ✅ Executable identification with metadata
-- ✅ **PEP 723 uv dependency detection** - scripts declare own dependencies
-- ✅ Per-skill environment variables (.env files)
-- ✅ Automatic dependency management for scripts
+**Unified CRUD Architecture:**
+- ✅ **3 unified CRUD tools** instead of 9+ individual tools (skill_crud, skill_files_crud, skill_env_crud)
+- ✅ **Bulk operations** - Create/update/delete multiple files atomically
+- ✅ **Consistent patterns** - All tools follow the same operation-based model
+- ✅ **Better error handling** - Unified error responses across all operations
 
-**Breaking Changes:**
-- Removed global `~/.skill-mcp/secrets` (now per-skill .env files)
-- Removed `list_env_keys` and `set_env` global tools
-- Replaced `get_skill_files` with more comprehensive `get_skill_details`
+**Direct Python Execution:**
+- ✅ **execute_python_code** - Run Python code without creating files
+- ✅ **Cross-skill imports** - Import modules from other skills as reusable libraries
+- ✅ **Automatic dependency aggregation** - Dependencies from imported skills auto-included
+- ✅ **Automatic environment loading** - .env files from referenced skills auto-loaded
+- ✅ **PEP 723 support** - Inline dependency declarations
+
+**Enhanced Features:**
+- ✅ **Skill templates** - Create skills from templates (basic, python, bash, nodejs)
+- ✅ **Template discovery** - List all available templates with descriptions
+- ✅ **Skill validation** - Validate skill structure and get diagnostics
+- ✅ **Search capabilities** - Search skills by name/description with text or regex
+- ✅ **Namespaced paths** - File paths shown as "skill_name:file.py" for clarity
+- ✅ **Configurable skills directory** - Use SKILL_MCP_DIR environment variable
 
 ## Test Results
 
-### Unit Tests: 78/78 Passing ✅
+### Unit Tests: 145/145 Passing ✅
 
-**Coverage: 82% (522/641 statements covered)**
+**Coverage: 86% (959/1120 statements covered)**
 
 Comprehensive test coverage across all modules:
 
-| Module | Coverage | Tests |
-|--------|----------|-------|
-| Core Config | 100% | All paths |
-| Models | 100% | Input/Output validation |
+| Module | Coverage | Key Areas |
+|--------|----------|-----------|
+| Core Config | 100% | All configuration constants |
+| Models & CRUD Models | 100% | Input/Output validation |
 | Exception Handling | 100% | All exception types |
 | YAML Parser | 90% | Frontmatter parsing |
 | Skill Service | 90% | Skill discovery & metadata |
-| File Service | 89% | File operations |
-| Environment Service | 83% | .env management |
-| Skill Tools | 85% | Skill management tools |
-| File Tools | 79% | File operation tools |
-| Script Detector | 87% | Script capability detection |
+| Template Service | 96% | Template management |
+| File Service | 83% | File CRUD operations |
+| Environment Service | 85% | Environment variable CRUD |
+| Skill CRUD Tool | 91% | Unified skill operations |
+| Skill Files CRUD Tool | 88% | Unified file operations |
+| Skill Env CRUD Tool | 96% | Unified env operations |
+| Script Detector | 85% | Script capability detection |
 | Path Utils | 86% | Path validation & security |
-| Server | 67% | MCP tool registration |
-| Script Service | 53% | Script execution |
-| Script Tools | 61% | Script execution tools |
+| Server | 76% | MCP tool registration |
+| Script Service | 78% | Script execution & PEP 723 |
+| Script Tools | 29% | Script execution tools |
 
-**Test Breakdown:**
-- ✅ Path utilities: 4 tests
-- ✅ YAML parsing: 7 tests
-- ✅ Environment service: 7 tests
-- ✅ File service: 4 tests
-- ✅ Skill service: 5 tests
-- ✅ Script detector: 20 tests
-- ✅ Script service: 7 tests
-- ✅ Integration tests: 24 tests
+**Test Organization:**
+- ✅ CRUD operations: Comprehensive tests for all operations (create, read, update, delete)
+- ✅ Bulk operations: Atomic transaction tests for file operations
+- ✅ Template system: Template discovery, validation, and creation
+- ✅ Path security: Directory traversal prevention and validation
+- ✅ PEP 723 support: Dependency detection and aggregation
+- ✅ Integration tests: Full MCP server workflow testing
 
 ### Manual Tests: All Passed ✅
-- ✅ List skills with YAML descriptions
+- ✅ List skills with YAML descriptions and search functionality
 - ✅ Get comprehensive skill details with SKILL.md content
-- ✅ Read/create/update/delete files
-- ✅ Read/update environment variables
-- ✅ Execute scripts with auto-dependencies
-- ✅ Weather-fetcher example runs successfully
+- ✅ Create skills from templates (basic, python, bash, nodejs)
+- ✅ Read/create/update/delete files (single and bulk)
+- ✅ Read/set/delete/clear environment variables
+- ✅ Execute scripts with auto-dependencies (PEP 723)
+- ✅ Execute Python code directly with cross-skill imports
+- ✅ Dependency aggregation from imported skill modules
+- ✅ Environment variable loading from referenced skills
 
 ## Verification Checklist
 
 - ✅ Server imports successfully
-- ✅ All 9 tools registered and callable
-- ✅ 78/78 unit tests passing (82% coverage)
+- ✅ All 5 unified CRUD tools registered and callable
+- ✅ 145/145 unit tests passing (86% coverage)
 - ✅ All manual tests passing
-- ✅ .cursor/mcp.json configured
-- ✅ Package deployed and active
-- ✅ Scripts execute successfully
-- ✅ File operations working
-- ✅ Environment variables working
+- ✅ MCP client configuration working (Claude Desktop, Cursor)
+- ✅ Package deployed to PyPI and active
+- ✅ Scripts execute successfully with PEP 723 dependencies
+- ✅ File operations working (including bulk operations)
+- ✅ Environment variables working (CRUD operations)
+- ✅ Template system working (create, list, validate)
+- ✅ Direct Python execution working with cross-skill imports
 - ✅ Backward compatible with existing skills
 
 ## Best Practices

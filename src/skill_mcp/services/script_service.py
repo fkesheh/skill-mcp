@@ -315,6 +315,7 @@ class ScriptService:
             env = os.environ.copy()
             python_paths: List[str] = []
             aggregated_deps: List[str] = []
+            processed_skills: set[str] = set()  # Track which skills we've processed
 
             if skill_references:
                 for ref in skill_references:
@@ -333,6 +334,16 @@ class ScriptService:
                     # Add skill directory to PYTHONPATH
                     if str(skill_dir) not in python_paths:
                         python_paths.append(str(skill_dir))
+
+                    # Load environment variables from this skill (only once per skill)
+                    if skill_name not in processed_skills:
+                        try:
+                            skill_env = EnvironmentService.load_skill_env(skill_name)
+                            env.update(skill_env)
+                            processed_skills.add(skill_name)
+                        except Exception:
+                            # If we can't load env vars, just skip (skill may not have .env file)
+                            processed_skills.add(skill_name)
 
                     # Read the referenced file and extract its dependencies
                     ref_file_path = skill_dir / file_path

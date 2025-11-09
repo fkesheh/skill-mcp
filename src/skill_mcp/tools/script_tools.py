@@ -22,10 +22,14 @@ RECOMMENDATION: Prefer Python over bash/shell scripts for better portability, er
 
 IMPORTANT: Use this tool instead of creating temporary script files when you need to run quick Python code.
 
+✅ SUPPORTS PEP 723 INLINE DEPENDENCIES - just like run_skill_script!
+
 FEATURES:
-- Inline PEP 723 dependencies: Include dependencies directly in code using /// script comments
+- **PEP 723 inline dependencies**: Include dependencies directly in code using /// script comments (auto-detected and installed)
+- **Dependency aggregation**: When importing from skills, their PEP 723 dependencies are automatically merged into your code
 - Skill file imports: Reference files from skills using namespace format (skill_name:path/to/file.py)
 - Automatic dependency installation: Code with PEP 723 metadata is run with 'uv run'
+- Environment variable loading: Automatically loads .env files from all referenced skills
 - Clean execution: Temporary file is automatically cleaned up after execution
 
 PARAMETERS:
@@ -33,6 +37,7 @@ PARAMETERS:
 - skill_references: Optional list of skill files to make available for import
                    Format: ["calculator:utils.py", "weather:api/client.py"]
                    The skill directories will be added to PYTHONPATH
+                   Environment variables from each skill's .env file will be loaded
 - timeout: Optional timeout in seconds (defaults to 30 seconds if not specified)
 
 CROSS-SKILL IMPORTS - BUILD REUSABLE LIBRARIES:
@@ -89,6 +94,16 @@ Import from subdirectories:
   "skill_references": ["calculator:advanced/calculus.py"]
 }
 ```
+
+ENVIRONMENT VARIABLES FROM REFERENCED SKILLS:
+When you import from a skill, its environment variables are automatically loaded:
+```json
+{
+  "code": "from api_client import fetch_weather\\ndata = fetch_weather('London')\\nprint(data)",
+  "skill_references": ["weather:api_client.py"]
+}
+```
+If weather:api_client.py uses API_KEY from its .env file, it will be available automatically!
 
 EXAMPLE WITH PEP 723 DEPENDENCIES:
 ```json
@@ -151,18 +166,54 @@ Execute with:
 ```
 
 SUPPORTED LANGUAGES:
-- Python: Automatically installs PEP 723 inline dependencies via 'uv run' if declared in the script
+- Python: Automatically detects and installs PEP 723 inline dependencies via 'uv run'
 - JavaScript/Node.js: Automatically runs 'npm install' if package.json exists
 - Bash: Executes shell scripts (.sh files)
 - Other: Any executable file with proper shebang line
 
 FEATURES:
 - Module imports: Scripts can import from other files within the skill directory
-- Automatic dependency installation: Python scripts with PEP 723 metadata are run with 'uv run', Node.js scripts install npm dependencies
+- **Automatic PEP 723 dependency detection**: Python scripts with inline metadata are automatically run with 'uv run'
+- Automatic npm dependency installation: Node.js scripts install dependencies from package.json
 - Environment variables: Loads skill-specific .env file and injects variables into script environment
 - Working directory: Can specify a subdirectory to run the script from
 - Arguments: Pass command-line arguments to the script
 - Output capture: Returns stdout, stderr, and exit code
+
+PEP 723 AUTOMATIC DEPENDENCY DETECTION:
+Python scripts with inline dependencies are automatically detected and executed with 'uv run':
+
+Example Python script with PEP 723 (e.g., weather-skill/fetch_weather.py):
+```python
+#!/usr/bin/env python3
+# /// script
+# dependencies = [
+#   "requests>=2.31.0",
+#   "beautifulsoup4>=4.12.0",
+# ]
+# ///
+
+import requests
+from bs4 import BeautifulSoup
+
+response = requests.get("https://api.weather.com/data")
+print(response.json())
+```
+
+Execute with automatic dependency handling:
+```json
+{
+  "skill_name": "weather-skill",
+  "script_path": "fetch_weather.py",
+  "args": ["--city", "London"]
+}
+```
+
+No manual dependency installation needed - the server automatically:
+1. Detects the PEP 723 metadata in your script
+2. Uses 'uv run' to create an isolated environment
+3. Installs the declared dependencies
+4. Executes your script with access to those dependencies
 
 PARAMETERS:
 - skill_name: The name of the skill directory (e.g., 'weather-skill')

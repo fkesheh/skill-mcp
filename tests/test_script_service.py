@@ -295,3 +295,115 @@ async def test_execute_python_code_timeout_error_message(tmp_path):
 
         # Error message should mention the custom timeout
         assert "1 seconds" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_execute_python_code_loads_env_vars_from_referenced_skills(tmp_path):
+    """Test execute_python_code loads environment variables from referenced skills."""
+    # Create a skill with a .env file
+    skill_dir = tmp_path / "api-skill"
+    skill_dir.mkdir()
+
+    # Create SKILL.md
+    (skill_dir / "SKILL.md").write_text("# API Skill\n\nA skill with API credentials")
+
+    # Create .env file with test variables
+    env_file = skill_dir / ".env"
+    env_file.write_text("API_KEY=test-secret-key-123\nAPI_URL=https://api.example.com")
+
+    # Create a module that uses environment variables
+    lib_file = skill_dir / "api_client.py"
+    lib_file.write_text("""import os
+
+def get_api_key():
+    return os.environ.get('API_KEY', 'not-found')
+
+def get_api_url():
+    return os.environ.get('API_URL', 'not-found')
+""")
+
+    # Test code that imports and uses the env vars
+    code = """from api_client import get_api_key, get_api_url
+
+api_key = get_api_key()
+api_url = get_api_url()
+print(f"API_KEY: {api_key}")
+print(f"API_URL: {api_url}")
+"""
+
+    with patch("skill_mcp.services.script_service.SKILLS_DIR", tmp_path):
+        with patch("skill_mcp.services.env_service.SKILLS_DIR", tmp_path):
+            result = await ScriptService.execute_python_code(
+                code, skill_references=["api-skill:api_client.py"]
+            )
+
+            assert result.exit_code == 0
+            assert "API_KEY: test-secret-key-123" in result.stdout
+            assert "API_URL: https://api.example.com" in result.stdout
+
+
+@pytest.mark.asyncio
+async def test_execute_python_code_loads_env_from_multiple_skills(tmp_path):
+    """Test execute_python_code loads env vars from multiple referenced skills."""
+    # Create first skill with env vars
+    skill1_dir = tmp_path / "skill1"
+    skill1_dir.mkdir()
+    (skill1_dir / "SKILL.md").write_text("# Skill 1")
+    (skill1_dir / ".env").write_text("VAR1=value1\nSHARED=from_skill1")
+    (skill1_dir / "module1.py").write_text(
+        "import os\ndef get_var1(): return os.environ.get('VAR1', 'not-found')"
+    )
+
+    # Create second skill with env vars
+    skill2_dir = tmp_path / "skill2"
+    skill2_dir.mkdir()
+    (skill2_dir / "SKILL.md").write_text("# Skill 2")
+    (skill2_dir / ".env").write_text("VAR2=value2\nSHARED=from_skill2")
+    (skill2_dir / "module2.py").write_text(
+        "import os\ndef get_var2(): return os.environ.get('VAR2', 'not-found')"
+    )
+
+    # Test code that uses env vars from both skills
+    code = """import os
+from module1 import get_var1
+from module2 import get_var2
+
+print(f"VAR1: {get_var1()}")
+print(f"VAR2: {get_var2()}")
+print(f"SHARED: {os.environ.get('SHARED', 'not-found')}")
+"""
+
+    with patch("skill_mcp.services.script_service.SKILLS_DIR", tmp_path):
+        with patch("skill_mcp.services.env_service.SKILLS_DIR", tmp_path):
+            result = await ScriptService.execute_python_code(
+                code, skill_references=["skill1:module1.py", "skill2:module2.py"]
+            )
+
+            assert result.exit_code == 0
+            assert "VAR1: value1" in result.stdout
+            assert "VAR2: value2" in result.stdout
+            # The last skill's env var should win in case of conflicts
+            assert "SHARED: from_skill2" in result.stdout
+
+
+@pytest.mark.asyncio
+async def test_execute_python_code_handles_missing_env_file(tmp_path):
+    """Test execute_python_code works even if referenced skill has no .env file."""
+    # Create skill without .env file
+    skill_dir = tmp_path / "no-env-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# No Env Skill")
+    (skill_dir / "utils.py").write_text("def add(a, b): return a + b")
+
+    code = """from utils import add
+result = add(10, 20)
+print(f"Result: {result}")
+"""
+
+    with patch("skill_mcp.services.script_service.SKILLS_DIR", tmp_path):
+        result = await ScriptService.execute_python_code(
+            code, skill_references=["no-env-skill:utils.py"]
+        )
+
+        assert result.exit_code == 0
+        assert "Result: 30" in result.stdout
