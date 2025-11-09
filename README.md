@@ -355,6 +355,25 @@ print(data)
 - ✅ **Rapid prototyping** - Experiment with code before committing to files
 - ✅ **Cross-skill workflows** - Combine utilities from multiple skills
 
+### Comparison: `run_skill_script` vs `execute_python_code`
+
+Both tools support PEP 723, but have different use cases:
+
+| Feature | `run_skill_script` | `execute_python_code` |
+|---------|-------------------|----------------------|
+| **PEP 723 Support** | ✅ YES | ✅ YES |
+| **Requires file** | ✅ Yes - executes existing script files | ❌ No - runs code directly |
+| **Languages supported** | Python, JavaScript, Bash, any executable | Python only |
+| **Cross-skill imports** | ❌ No | ✅ YES - import from other skills |
+| **Dependency aggregation** | ❌ No | ✅ YES - auto-merges deps from imports |
+| **Environment loading** | Loads skill's .env only | Loads .env from all referenced skills |
+| **Best for** | Running complete scripts, batch jobs | Quick experiments, cross-skill workflows |
+| **Example use case** | `python data_processor.py --input data.csv` | `from utils import process; process(data)` |
+
+**Key Insight:**
+- Use `run_skill_script` when you have a script file ready to execute
+- Use `execute_python_code` when you want to quickly run code without creating files, especially when combining utilities from multiple skills
+
 ## Usage Examples
 
 ### Creating a New Skill
