@@ -1,9 +1,12 @@
 """Configuration constants for skill-mcp server."""
 
+import os
 from pathlib import Path
 
 # Directories
-SKILLS_DIR = Path.home() / ".skill-mcp" / "skills"
+# Allow override via SKILL_MCP_DIR environment variable
+_default_skills_dir = Path.home() / ".skill-mcp" / "skills"
+SKILLS_DIR = Path(os.getenv("SKILL_MCP_DIR", str(_default_skills_dir)))
 SKILLS_DIR.mkdir(parents=True, exist_ok=True)
 
 # File operation limits

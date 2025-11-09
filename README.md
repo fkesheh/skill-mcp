@@ -363,30 +363,59 @@ All MCP tools have been enhanced with detailed descriptions to prevent confusion
 
 ## Advanced Configuration
 
-### Custom Directories
+### Custom Skills Directory
 
-Edit `skill_mcp_server.py` to change default locations:
+The skills directory can be customized using the `SKILL_MCP_DIR` environment variable. If not set, it defaults to `~/.skill-mcp/skills`.
 
-```python
-# Change skills directory
-SKILLS_DIR = Path("/custom/path/to/skills")
+**Setting via environment variable (recommended):**
+
+```bash
+# Temporarily for current session
+export SKILL_MCP_DIR="/custom/path/to/skills"
+
+# Permanently in your shell config (~/.bashrc, ~/.zshrc, etc.)
+echo 'export SKILL_MCP_DIR="/custom/path/to/skills"' >> ~/.zshrc
 ```
-(No global secrets file; env vars are per-skill .env)
+
+**In MCP client configuration:**
+
+For Claude Desktop or Cursor, add the environment variable to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "skill-mcp": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "skill-mcp",
+        "skill-mcp-server"
+      ],
+      "env": {
+        "SKILL_MCP_DIR": "/custom/path/to/skills"
+      }
+    }
+  }
+}
+```
+
+**Notes:**
+- The directory will be created automatically if it doesn't exist
+- Use absolute paths for the custom directory
+- All skills will be stored in the configured directory
+- No global secrets file; env vars are per-skill .env files
 
 ### Resource Limits
 
-Adjust limits in `skill_mcp_server.py`:
+Resource limits are defined in `src/skill_mcp/core/config.py`:
 
 ```python
 MAX_FILE_SIZE = 1_000_000      # File read limit (1MB)
 MAX_OUTPUT_SIZE = 100_000      # Script output limit (100KB)
+SCRIPT_TIMEOUT_SECONDS = 30    # Script execution timeout
 ```
 
-Script timeout in the `run_skill_script` function:
-
-```python
-result = subprocess.run(cmd, timeout=30)  # 30 seconds
-```
+To modify these limits, you'll need to fork the repository and adjust the constants in the config file.
 
 ## Architecture & Implementation
 

@@ -64,6 +64,10 @@ class RunSkillScriptInput(BaseModel):
     working_dir: Optional[str] = Field(
         default=None, description="Optional working directory for script execution"
     )
+    timeout: Optional[int] = Field(
+        default=None,
+        description="Optional timeout in seconds (defaults to 30 seconds if not specified)",
+    )
 
 
 class ExecutePythonCodeInput(BaseModel):
@@ -73,6 +77,10 @@ class ExecutePythonCodeInput(BaseModel):
     skill_references: Optional[List[str]] = Field(
         default=None,
         description="Optional list of skill files to import using namespace format (e.g., 'calculator:utils.py')",
+    )
+    timeout: Optional[int] = Field(
+        default=None,
+        description="Optional timeout in seconds (defaults to 30 seconds if not specified)",
     )
 
 

@@ -33,6 +33,7 @@ PARAMETERS:
 - skill_references: Optional list of skill files to make available for import
                    Format: ["calculator:utils.py", "weather:api/client.py"]
                    The skill directories will be added to PYTHONPATH
+- timeout: Optional timeout in seconds (defaults to 30 seconds if not specified)
 
 CROSS-SKILL IMPORTS - BUILD REUSABLE LIBRARIES:
 Create utility skills once, import them anywhere! Perfect for:
@@ -168,6 +169,7 @@ PARAMETERS:
 - script_path: Relative path to the script within skill directory (e.g., 'main.py', 'scripts/fetch_weather.py', 'bin/process.sh')
 - args: Optional list of command-line arguments (e.g., ['--verbose', 'input.txt'])
 - working_dir: Optional working directory relative to skill root (e.g., 'scripts')
+- timeout: Optional timeout in seconds (defaults to 30 seconds if not specified)
 
 IMPORTANT PATH NOTES:
 - All paths are RELATIVE to the skill directory, never absolute paths
@@ -191,6 +193,7 @@ RETURNS: Script execution result with:
             result = await ScriptService.execute_python_code(
                 input_data.code,
                 input_data.skill_references,
+                input_data.timeout,
             )
 
             output = "Python Code Execution\n"
@@ -220,6 +223,7 @@ RETURNS: Script execution result with:
                 input_data.script_path,
                 input_data.args,
                 input_data.working_dir,
+                input_data.timeout,
             )
 
             output = f"Script: {input_data.skill_name}/{input_data.script_path}\n"

@@ -154,6 +154,7 @@ class ScriptService:
         script_path: str,
         args: Optional[List[str]] = None,
         working_dir: Optional[str] = None,
+        timeout: Optional[int] = None,
     ) -> ScriptResult:
         """
         Execute a script with skill's environment variables.
@@ -163,6 +164,7 @@ class ScriptService:
             script_path: Relative path to the script
             args: Optional command-line arguments
             working_dir: Optional working directory
+            timeout: Optional timeout in seconds (defaults to SCRIPT_TIMEOUT_SECONDS if not specified)
 
         Returns:
             ScriptResult object
@@ -172,6 +174,8 @@ class ScriptService:
             SkillNotFoundError: If skill doesn't exist
             ScriptExecutionError: If execution fails
         """
+        # Use provided timeout or fall back to default
+        script_timeout = timeout if timeout is not None else SCRIPT_TIMEOUT_SECONDS
         # Validate script path
         try:
             full_script_path = validate_path(skill_name, script_path)
@@ -234,14 +238,14 @@ class ScriptService:
                             cwd=str(full_script_path.parent),
                             env=env,
                             capture_output=True,
-                            timeout=SCRIPT_TIMEOUT_SECONDS,
+                            timeout=script_timeout,
                             check=True,
                         )
                     except subprocess.CalledProcessError as e:
                         raise ScriptExecutionError(f"npm install failed: {e.stderr}")
                     except subprocess.TimeoutExpired:
                         raise ScriptExecutionError(
-                            f"npm install timed out ({SCRIPT_TIMEOUT_SECONDS} seconds)"
+                            f"npm install timed out ({script_timeout} seconds)"
                         )
             cmd = ["node", str(full_script_path)] + args
         elif ext == ".sh":
@@ -258,7 +262,7 @@ class ScriptService:
                 env=env,
                 capture_output=True,
                 text=True,
-                timeout=SCRIPT_TIMEOUT_SECONDS,
+                timeout=script_timeout,
             )
 
             # Truncate output if needed
@@ -273,9 +277,7 @@ class ScriptService:
             return ScriptResult(result.returncode, stdout, stderr)
 
         except subprocess.TimeoutExpired:
-            raise ScriptExecutionError(
-                f"Script execution timed out ({SCRIPT_TIMEOUT_SECONDS} seconds)"
-            )
+            raise ScriptExecutionError(f"Script execution timed out ({script_timeout} seconds)")
         except Exception as e:
             raise ScriptExecutionError(f"Failed to execute script: {str(e)}")
 
@@ -283,6 +285,7 @@ class ScriptService:
     async def execute_python_code(
         code: str,
         skill_references: Optional[List[str]] = None,
+        timeout: Optional[int] = None,
     ) -> ScriptResult:
         """
         Execute Python code directly without requiring a script file.
@@ -295,6 +298,7 @@ class ScriptService:
             code: Python code to execute (can include PEP 723 dependencies)
             skill_references: List of skill files in namespace format to make available
                             e.g., ["calculator:utils.py", "weather:api/client.py"]
+            timeout: Optional timeout in seconds (defaults to SCRIPT_TIMEOUT_SECONDS if not specified)
 
         Returns:
             ScriptResult with stdout, stderr, and exit code
@@ -302,6 +306,9 @@ class ScriptService:
         Raises:
             ScriptExecutionError: If execution fails
         """
+        # Use provided timeout or fall back to default
+        script_timeout = timeout if timeout is not None else SCRIPT_TIMEOUT_SECONDS
+
         temp_file = None
         try:
             # Parse skill references and collect dependencies
@@ -370,7 +377,7 @@ class ScriptService:
                 capture_output=True,
                 text=True,
                 env=env,
-                timeout=SCRIPT_TIMEOUT_SECONDS,
+                timeout=script_timeout,
             )
 
             # Truncate output if needed
@@ -385,9 +392,7 @@ class ScriptService:
             return ScriptResult(result.returncode, stdout, stderr)
 
         except subprocess.TimeoutExpired:
-            raise ScriptExecutionError(
-                f"Code execution timed out ({SCRIPT_TIMEOUT_SECONDS} seconds)"
-            )
+            raise ScriptExecutionError(f"Code execution timed out ({script_timeout} seconds)")
         except (SkillNotFoundError, ScriptExecutionError):
             raise
         except Exception as e:

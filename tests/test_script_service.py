@@ -221,3 +221,77 @@ print(f"Success: {data['id']}")
 
         assert result.exit_code == 0
         assert "Success:" in result.stdout
+
+
+# Tests for timeout functionality
+
+
+@pytest.mark.asyncio
+async def test_run_script_with_custom_timeout(sample_skill, temp_skills_dir):
+    """Test run_script uses custom timeout when provided."""
+    # Create a simple script
+    script_path = temp_skills_dir / "test-skill" / "quick.py"
+    script_path.write_text("print('done')")
+
+    with patch("skill_mcp.services.script_service.SKILLS_DIR", temp_skills_dir):
+        with patch("skill_mcp.utils.path_utils.SKILLS_DIR", temp_skills_dir):
+            # Should complete within custom timeout
+            result = await ScriptService.run_script("test-skill", "quick.py", timeout=60)
+            assert result.exit_code == 0
+            assert "done" in result.stdout
+
+
+@pytest.mark.asyncio
+async def test_run_script_with_default_timeout(sample_skill, temp_skills_dir):
+    """Test run_script uses default timeout when not provided."""
+    # Create a simple script
+    script_path = temp_skills_dir / "test-skill" / "quick.py"
+    script_path.write_text("print('done')")
+
+    with patch("skill_mcp.services.script_service.SKILLS_DIR", temp_skills_dir):
+        with patch("skill_mcp.utils.path_utils.SKILLS_DIR", temp_skills_dir):
+            # Should use default timeout (30 seconds)
+            result = await ScriptService.run_script("test-skill", "quick.py")
+            assert result.exit_code == 0
+            assert "done" in result.stdout
+
+
+@pytest.mark.asyncio
+async def test_run_script_timeout_error_message(sample_skill, temp_skills_dir):
+    """Test timeout error message includes the correct timeout value."""
+    # Create a script that sleeps forever
+    script_path = temp_skills_dir / "test-skill" / "slow.py"
+    script_path.write_text("import time; time.sleep(999)")
+
+    with patch("skill_mcp.services.script_service.SKILLS_DIR", temp_skills_dir):
+        with patch("skill_mcp.utils.path_utils.SKILLS_DIR", temp_skills_dir):
+            # Test with custom timeout of 1 second
+            with pytest.raises(ScriptExecutionError) as exc_info:
+                await ScriptService.run_script("test-skill", "slow.py", timeout=1)
+
+            # Error message should mention the custom timeout
+            assert "1 seconds" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_execute_python_code_with_custom_timeout(tmp_path):
+    """Test execute_python_code uses custom timeout when provided."""
+    code = """print('done')"""
+
+    with patch("skill_mcp.services.script_service.SKILLS_DIR", tmp_path):
+        result = await ScriptService.execute_python_code(code, timeout=60)
+        assert result.exit_code == 0
+        assert "done" in result.stdout
+
+
+@pytest.mark.asyncio
+async def test_execute_python_code_timeout_error_message(tmp_path):
+    """Test execute_python_code timeout error includes correct timeout value."""
+    code = """import time; time.sleep(999)"""
+
+    with patch("skill_mcp.services.script_service.SKILLS_DIR", tmp_path):
+        with pytest.raises(ScriptExecutionError) as exc_info:
+            await ScriptService.execute_python_code(code, timeout=1)
+
+        # Error message should mention the custom timeout
+        assert "1 seconds" in str(exc_info.value)
