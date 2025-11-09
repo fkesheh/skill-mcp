@@ -26,6 +26,7 @@ class SkillCrud:
 **Operations:**
 - **create**: Create a new skill with templates (basic, python, bash)
 - **list**: List all skills with optional search (supports text and regex)
+- **search**: Search for skills by pattern (text or regex)
 - **get**: Get detailed information about a specific skill
 - **validate**: Validate skill structure and get diagnostics
 - **delete**: Delete a skill directory (requires confirm=true)
@@ -42,8 +43,11 @@ class SkillCrud:
 // List all skills
 {"operation": "list"}
 
-// Search skills
-{"operation": "list", "search": "weather"}
+// Search skills by text
+{"operation": "search", "search": "weather"}
+
+// Search skills by regex pattern
+{"operation": "search", "search": "^api-"}
 
 // Get skill details
 {"operation": "get", "skill_name": "my-skill", "include_content": true}
@@ -66,6 +70,8 @@ class SkillCrud:
         try:
             if operation == "list":
                 return await SkillCrud._handle_list(input_data)
+            elif operation == "search":
+                return await SkillCrud._handle_search(input_data)
             elif operation == "get":
                 return await SkillCrud._handle_get(input_data)
             elif operation == "validate":
@@ -80,7 +86,7 @@ class SkillCrud:
                 return [
                     types.TextContent(
                         type="text",
-                        text=f"Unknown operation: {operation}. Valid operations: create, list, get, validate, delete, list_templates",
+                        text=f"Unknown operation: {operation}. Valid operations: create, list, search, get, validate, delete, list_templates",
                     )
                 ]
         except Exception as e:
@@ -119,6 +125,49 @@ class SkillCrud:
             if input_data.search:
                 result += f" matching '{input_data.search}'"
             result += ":\n\n"
+
+            for skill in skills:
+                status = "✓" if skill.has_skill_md else "✗"
+                result += f"{status} {skill.name}\n"
+                if skill.description:
+                    result += f"   Description: {skill.description}\n"
+                result += f"   Path: {skill.path}\n\n"
+
+        return [types.TextContent(type="text", text=result)]
+
+    @staticmethod
+    async def _handle_search(input_data: SkillCrudInput) -> list[types.TextContent]:
+        """Handle search operation."""
+        if not input_data.search:
+            return [
+                types.TextContent(
+                    type="text", text="Error: search pattern is required for 'search' operation"
+                )
+            ]
+
+        all_skills = SkillService.list_skills()
+
+        # Apply search filter
+        import re
+
+        skills = [
+            s
+            for s in all_skills
+            if (
+                input_data.search.lower() in s.name.lower()
+                or input_data.search.lower() in (s.description or "").lower()
+                or (
+                    re.search(input_data.search, s.name, re.IGNORECASE)
+                    if input_data.search.startswith("^") or "*" in input_data.search
+                    else False
+                )
+            )
+        ]
+
+        if not skills:
+            result = f"No skills found matching '{input_data.search}'"
+        else:
+            result = f"Found {len(skills)} skill(s) matching '{input_data.search}':\n\n"
 
             for skill in skills:
                 status = "✓" if skill.has_skill_md else "✗"
