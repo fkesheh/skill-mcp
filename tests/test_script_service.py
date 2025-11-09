@@ -5,7 +5,12 @@ from unittest.mock import patch
 import pytest
 
 from skill_mcp.core.exceptions import InvalidPathError, PathTraversalError, ScriptExecutionError
-from skill_mcp.services.script_service import ScriptResult, ScriptService
+from skill_mcp.services.script_service import (
+    ScriptResult,
+    ScriptService,
+    extract_pep723_dependencies,
+    merge_dependencies,
+)
 
 
 @pytest.mark.asyncio
@@ -75,3 +80,144 @@ async def test_run_script_invalid_working_dir(sample_skill, temp_skills_dir):
                 await ScriptService.run_script(
                     "test-skill", "scripts/test.py", working_dir="../../etc"
                 )
+
+
+# Tests for dependency aggregation features
+
+
+def test_extract_pep723_dependencies_with_deps():
+    """Test extracting dependencies from PEP 723 metadata."""
+    code = """#!/usr/bin/env python3
+# /// script
+# dependencies = [
+#   "requests>=2.31.0",
+#   "pandas>=2.0.0",
+# ]
+# ///
+
+import requests
+"""
+    deps = extract_pep723_dependencies(code)
+    assert deps == ["requests>=2.31.0", "pandas>=2.0.0"]
+
+
+def test_extract_pep723_dependencies_no_deps():
+    """Test extracting dependencies when none exist."""
+    code = """#!/usr/bin/env python3
+# /// script
+# ///
+
+import os
+"""
+    deps = extract_pep723_dependencies(code)
+    assert deps == []
+
+
+def test_extract_pep723_dependencies_no_metadata():
+    """Test extracting dependencies when no PEP 723 block exists."""
+    code = """#!/usr/bin/env python3
+
+import os
+"""
+    deps = extract_pep723_dependencies(code)
+    assert deps == []
+
+
+def test_merge_dependencies_creates_new_block():
+    """Test merging dependencies creates PEP 723 block when none exists."""
+    code = """from utils import calculate
+
+print(calculate(10, 20))
+"""
+    merged = merge_dependencies(code, ["requests>=2.31.0", "pandas>=2.0.0"])
+
+    assert "# /// script" in merged
+    assert "# ///" in merged
+    assert "requests>=2.31.0" in merged
+    assert "pandas>=2.0.0" in merged
+    assert "from utils import calculate" in merged
+
+
+def test_merge_dependencies_merges_with_existing():
+    """Test merging dependencies with existing PEP 723 block."""
+    code = """# /// script
+# dependencies = [
+#   "rich>=13.0.0",
+# ]
+# ///
+
+from utils import calculate
+"""
+    merged = merge_dependencies(code, ["requests>=2.31.0"])
+
+    assert "rich>=13.0.0" in merged
+    assert "requests>=2.31.0" in merged
+    assert "from utils import calculate" in merged
+
+
+def test_merge_dependencies_deduplicates():
+    """Test merging dependencies deduplicates same package."""
+    code = """# /// script
+# dependencies = [
+#   "requests>=2.30.0",
+# ]
+# ///
+
+print("test")
+"""
+    merged = merge_dependencies(code, ["requests>=2.31.0"])
+
+    # Should keep the later version
+    assert "requests>=2.31.0" in merged
+    assert "requests>=2.30.0" not in merged
+
+
+def test_merge_dependencies_empty_list():
+    """Test merging with empty dependency list returns original code."""
+    code = """print("test")"""
+    merged = merge_dependencies(code, [])
+
+    assert merged == code
+
+
+@pytest.mark.asyncio
+async def test_execute_python_code_with_skill_references(tmp_path):
+    """Test execute_python_code with skill references that have PEP 723 deps."""
+    # Create a temporary skill with a module that has PEP 723 deps
+    skill_dir = tmp_path / "test-skill"
+    skill_dir.mkdir()
+
+    # Create SKILL.md
+    (skill_dir / "SKILL.md").write_text("# Test Skill\n\nA test skill")
+
+    # Create a module with PEP 723 dependencies
+    lib_file = skill_dir / "lib_with_deps.py"
+    lib_file.write_text("""#!/usr/bin/env python3
+# /// script
+# dependencies = [
+#   "requests>=2.31.0",
+# ]
+# ///
+
+import requests
+
+def fetch_data(url):
+    response = requests.get(url, timeout=10)
+    return response.json()
+""")
+
+    # Test code that imports from the module
+    code = """from lib_with_deps import fetch_data
+
+url = "https://jsonplaceholder.typicode.com/todos/1"
+data = fetch_data(url)
+print(f"Success: {data['id']}")
+"""
+
+    with patch("skill_mcp.services.script_service.SKILLS_DIR", tmp_path):
+        result = await ScriptService.execute_python_code(
+            code, skill_references=["test-skill:lib_with_deps.py"]
+        )
+
+        assert result.exit_code == 0
+        assert "Success:" in result.stdout

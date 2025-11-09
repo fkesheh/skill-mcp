@@ -3,7 +3,7 @@
 from mcp import types
 
 from skill_mcp.core.exceptions import SkillMCPException
-from skill_mcp.models import RunSkillScriptInput
+from skill_mcp.models import ExecutePythonCodeInput, RunSkillScriptInput
 from skill_mcp.services.script_service import ScriptService
 
 
@@ -15,14 +15,139 @@ class ScriptTools:
         """Get script execution tools."""
         return [
             types.Tool(
+                name="execute_python_code",
+                description="""Execute Python code directly without requiring a script file.
+
+RECOMMENDATION: Prefer Python over bash/shell scripts for better portability, error handling, and maintainability.
+
+IMPORTANT: Use this tool instead of creating temporary script files when you need to run quick Python code.
+
+FEATURES:
+- Inline PEP 723 dependencies: Include dependencies directly in code using /// script comments
+- Skill file imports: Reference files from skills using namespace format (skill_name:path/to/file.py)
+- Automatic dependency installation: Code with PEP 723 metadata is run with 'uv run'
+- Clean execution: Temporary file is automatically cleaned up after execution
+
+PARAMETERS:
+- code: Python code to execute (can include PEP 723 dependencies)
+- skill_references: Optional list of skill files to make available for import
+                   Format: ["calculator:utils.py", "weather:api/client.py"]
+                   The skill directories will be added to PYTHONPATH
+
+CROSS-SKILL IMPORTS - BUILD REUSABLE LIBRARIES:
+Create utility skills once, import them anywhere! Perfect for:
+- Math/statistics libraries (calculator:stats.py)
+- API clients (weather:api_client.py)
+- Data processors (etl:transformers.py)
+- Common utilities (helpers:string_utils.py)
+
+AUTOMATIC DEPENDENCY AGGREGATION:
+When you reference skill files, their PEP 723 dependencies are automatically collected
+and merged into your code! You don't need to redeclare dependencies - just reference
+the modules and their deps are included automatically.
+
+Example - library module with deps:
+```python
+# data-processor:json_fetcher.py
+# /// script
+# dependencies = ["requests>=2.31.0"]
+# ///
+import requests
+def fetch_json(url): return requests.get(url).json()
+```
+
+Your code - NO need to declare requests!
+```json
+{
+  "code": "from json_fetcher import fetch_json\\ndata = fetch_json('https://api.example.com')\\nprint(data)",
+  "skill_references": ["data-processor:json_fetcher.py"]
+}
+```
+Dependencies from json_fetcher.py are automatically aggregated!
+
+Import from single skill:
+```json
+{
+  "code": "from math_utils import add, multiply\\nprint(add(10, 20))",
+  "skill_references": ["calculator:math_utils.py"]
+}
+```
+
+Import from multiple skills:
+```json
+{
+  "code": "from math_utils import add\\nfrom stats_utils import mean\\nfrom converters import celsius_to_fahrenheit\\n\\nresult = add(10, 20)\\navg = mean([10, 20, 30])\\ntemp = celsius_to_fahrenheit(25)\\nprint(f'Sum: {result}, Avg: {avg}, Temp: {temp}F')",
+  "skill_references": ["calculator:math_utils.py", "calculator:stats_utils.py", "calculator:converters.py"]
+}
+```
+
+Import from subdirectories:
+```json
+{
+  "code": "from advanced.calculus import derivative_at_point\\ndef f(x): return x**2\\nprint(derivative_at_point(f, 5))",
+  "skill_references": ["calculator:advanced/calculus.py"]
+}
+```
+
+EXAMPLE WITH PEP 723 DEPENDENCIES:
+```json
+{
+  "code": "# /// script\\n# dependencies = [\\n#   \\"requests>=2.31.0\\",\\n#   \\"pandas\\",\\n# ]\\n# ///\\n\\nimport requests\\nimport pandas as pd\\n\\nresponse = requests.get('https://api.example.com/data')\\ndf = pd.DataFrame(response.json())\\nprint(df.head())"
+}
+```
+
+WHY PYTHON OVER BASH/JS:
+- Better error handling and debugging
+- Rich standard library
+- Cross-platform compatibility
+- Easier to read and maintain
+- Strong typing support
+- Better dependency management
+
+RETURNS: Execution result with:
+- Exit code (0 = success, non-zero = failure)
+- STDOUT (standard output)
+- STDERR (error output)""",
+                inputSchema=ExecutePythonCodeInput.model_json_schema(),
+            ),
+            types.Tool(
                 name="run_skill_script",
-                description="""Execute a script or executable program within a skill directory with optional arguments and automatic dependency management.
+                description="""Execute a script within a skill directory. Skills are modular libraries with reusable code - scripts can import from their own modules or use external dependencies.
 
 IMPORTANT: ALWAYS use this tool to execute scripts. DO NOT use external bash/shell tools to execute scripts directly. This tool provides:
 - Automatic dependency management (Python PEP 723, npm packages)
 - Proper environment variable injection from .env files
 - Secure execution within skill directory boundaries
 - Proper error handling and output capture
+
+SKILLS AS LIBRARIES:
+Scripts within a skill can import from local modules naturally:
+```
+weather-skill/
+├── main.py          # Script that imports from modules below
+├── api_client.py    # Reusable API client module
+├── parsers.py       # Data parsing utilities
+└── formatters.py    # Output formatting
+```
+
+In main.py:
+```python
+from api_client import WeatherAPI
+from formatters import format_temperature
+
+api = WeatherAPI()
+data = api.get_weather("London")
+print(format_temperature(data))
+```
+
+Execute with:
+```json
+{
+  "skill_name": "weather-skill",
+  "script_path": "main.py",
+  "args": ["--city", "London"]
+}
+```
 
 SUPPORTED LANGUAGES:
 - Python: Automatically installs PEP 723 inline dependencies via 'uv run' if declared in the script
@@ -31,6 +156,7 @@ SUPPORTED LANGUAGES:
 - Other: Any executable file with proper shebang line
 
 FEATURES:
+- Module imports: Scripts can import from other files within the skill directory
 - Automatic dependency installation: Python scripts with PEP 723 metadata are run with 'uv run', Node.js scripts install npm dependencies
 - Environment variables: Loads skill-specific .env file and injects variables into script environment
 - Working directory: Can specify a subdirectory to run the script from
@@ -55,6 +181,35 @@ RETURNS: Script execution result with:
                 inputSchema=RunSkillScriptInput.model_json_schema(),
             ),
         ]
+
+    @staticmethod
+    async def execute_python_code(
+        input_data: ExecutePythonCodeInput,
+    ) -> list[types.TextContent]:
+        """Execute Python code directly."""
+        try:
+            result = await ScriptService.execute_python_code(
+                input_data.code,
+                input_data.skill_references,
+            )
+
+            output = "Python Code Execution\n"
+            output += f"Exit code: {result.exit_code}\n\n"
+
+            if result.stdout:
+                output += f"STDOUT:\n{result.stdout}\n"
+
+            if result.stderr:
+                output += f"STDERR:\n{result.stderr}\n"
+
+            if not result.stdout and not result.stderr:
+                output += "(No output)\n"
+
+            return [types.TextContent(type="text", text=output)]
+        except SkillMCPException as e:
+            return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Error executing code: {str(e)}")]
 
     @staticmethod
     async def run_skill_script(input_data: RunSkillScriptInput) -> list[types.TextContent]:

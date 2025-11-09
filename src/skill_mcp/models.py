@@ -66,6 +66,16 @@ class RunSkillScriptInput(BaseModel):
     )
 
 
+class ExecutePythonCodeInput(BaseModel):
+    """Input for executing Python code directly."""
+
+    code: str = Field(description="Python code to execute (can include PEP 723 dependencies)")
+    skill_references: Optional[List[str]] = Field(
+        default=None,
+        description="Optional list of skill files to import using namespace format (e.g., 'calculator:utils.py')",
+    )
+
+
 class ReadSkillEnvInput(BaseModel):
     """Input for reading skill .env file."""
 

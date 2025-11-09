@@ -12,7 +12,7 @@ import mcp.server.stdio
 from mcp import types
 from mcp.server import Server
 
-from skill_mcp.models import RunSkillScriptInput
+from skill_mcp.models import ExecutePythonCodeInput, RunSkillScriptInput
 from skill_mcp.models_crud import (
     SkillCrudInput,
     SkillEnvCrudInput,
@@ -53,7 +53,10 @@ async def call_tool(name: str, arguments: Any) -> list[types.TextContent]:
             env_input = SkillEnvCrudInput(**arguments)
             return await SkillEnvCrud.skill_env_crud(env_input)
 
-        # Script execution tool (unchanged)
+        # Script execution tools
+        elif name == "execute_python_code":
+            code_input = ExecutePythonCodeInput(**arguments)
+            return await ScriptTools.execute_python_code(code_input)
         elif name == "run_skill_script":
             script_input = RunSkillScriptInput(**arguments)
             return await ScriptTools.run_skill_script(script_input)
