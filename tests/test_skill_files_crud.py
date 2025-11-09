@@ -66,7 +66,7 @@ class TestSkillFilesCrudCreate:
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
         assert len(result) == 1
-        assert "Successfully created file 'test.py'" in result[0].text
+        assert f"Successfully created file '{setup_test_skill}:test.py'" in result[0].text
         assert (SKILLS_DIR / setup_test_skill / "test.py").exists()
 
     @pytest.mark.asyncio
@@ -101,7 +101,7 @@ class TestSkillFilesCrudCreate:
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
         assert len(result) == 1
-        assert "Successfully created file 'src/utils.py'" in result[0].text
+        assert f"Successfully created file '{setup_test_skill}:src/utils.py'" in result[0].text
         assert (SKILLS_DIR / setup_test_skill / "src" / "utils.py").exists()
 
     @pytest.mark.asyncio
@@ -152,7 +152,7 @@ class TestSkillFilesCrudRead:
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
         assert len(result) == 1
-        assert "=== test.py ===" in result[0].text
+        assert f"=== {setup_test_skill}:test.py ===" in result[0].text
         assert test_content in result[0].text
 
     @pytest.mark.asyncio
@@ -188,12 +188,12 @@ class TestSkillFilesCrudRead:
         assert len(result) == 1
         output = result[0].text
 
-        # Should contain all three files
-        assert "=== file1.py ===" in output
+        # Should contain all three files with namespaced paths
+        assert f"=== {setup_test_skill}:file1.py ===" in output
         assert "# File 1 content" in output
-        assert "=== file2.py ===" in output
+        assert f"=== {setup_test_skill}:file2.py ===" in output
         assert "# File 2 content" in output
-        assert "=== file3.py ===" in output
+        assert f"=== {setup_test_skill}:file3.py ===" in output
         assert "# File 3 content" in output
 
     @pytest.mark.asyncio
@@ -248,7 +248,7 @@ class TestSkillFilesCrudUpdate:
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
         assert len(result) == 1
-        assert "Successfully updated file 'test.py'" in result[0].text
+        assert f"Successfully updated file '{setup_test_skill}:test.py'" in result[0].text
         assert test_file.read_text() == new_content
 
     @pytest.mark.asyncio
@@ -303,7 +303,7 @@ class TestSkillFilesCrudDelete:
         result = await SkillFilesCrud.skill_files_crud(input_data)
 
         assert len(result) == 1
-        assert "Successfully deleted file 'test.py'" in result[0].text
+        assert f"Successfully deleted file '{setup_test_skill}:test.py'" in result[0].text
         assert not test_file.exists()
 
     @pytest.mark.asyncio

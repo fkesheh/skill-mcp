@@ -121,9 +121,11 @@ IMPORTANT PATH NOTES:
             for file_path in input_data.file_paths:
                 try:
                     content = FileService.read_file(input_data.skill_name, file_path)
-                    results.append(f"=== {file_path} ===\n{content}")
+                    namespaced_path = f"{input_data.skill_name}:{file_path}"
+                    results.append(f"=== {namespaced_path} ===\n{content}")
                 except Exception as e:
-                    errors.append(f"Error reading '{file_path}': {str(e)}")
+                    namespaced_path = f"{input_data.skill_name}:{file_path}"
+                    errors.append(f"Error reading '{namespaced_path}': {str(e)}")
 
             # Combine results
             output = "\n\n".join(results)
@@ -142,7 +144,8 @@ IMPORTANT PATH NOTES:
 
         content = FileService.read_file(input_data.skill_name, input_data.file_path)
 
-        result = f"=== {input_data.file_path} ===\n{content}"
+        namespaced_path = f"{input_data.skill_name}:{input_data.file_path}"
+        result = f"=== {namespaced_path} ===\n{content}"
         return [types.TextContent(type="text", text=result)]
 
     @staticmethod
@@ -167,11 +170,13 @@ IMPORTANT PATH NOTES:
                     )
                     created_files.append(file_spec.path)
 
+                # Use namespaced paths in output
+                namespaced_files = [f"{input_data.skill_name}:{f}" for f in created_files]
                 return [
                     types.TextContent(
                         type="text",
                         text=f"Successfully created {len(created_files)} files:\n"
-                        + "\n".join(f"  - {f}" for f in created_files),
+                        + "\n".join(f"  - {f}" for f in namespaced_files),
                     )
                 ]
             except Exception as e:
@@ -198,10 +203,11 @@ IMPORTANT PATH NOTES:
 
         FileService.create_file(input_data.skill_name, input_data.file_path, input_data.content)
 
+        namespaced_path = f"{input_data.skill_name}:{input_data.file_path}"
         return [
             types.TextContent(
                 type="text",
-                text=f"Successfully created file '{input_data.file_path}' ({len(input_data.content)} characters)",
+                text=f"Successfully created file '{namespaced_path}' ({len(input_data.content)} characters)",
             )
         ]
 
@@ -238,10 +244,11 @@ IMPORTANT PATH NOTES:
 
         FileService.update_file(input_data.skill_name, input_data.file_path, input_data.content)
 
+        namespaced_path = f"{input_data.skill_name}:{input_data.file_path}"
         return [
             types.TextContent(
                 type="text",
-                text=f"Successfully updated file '{input_data.file_path}' ({len(input_data.content)} characters)",
+                text=f"Successfully updated file '{namespaced_path}' ({len(input_data.content)} characters)",
             )
         ]
 
@@ -257,8 +264,7 @@ IMPORTANT PATH NOTES:
 
         FileService.delete_file(input_data.skill_name, input_data.file_path)
 
+        namespaced_path = f"{input_data.skill_name}:{input_data.file_path}"
         return [
-            types.TextContent(
-                type="text", text=f"Successfully deleted file '{input_data.file_path}'"
-            )
+            types.TextContent(type="text", text=f"Successfully deleted file '{namespaced_path}'")
         ]
