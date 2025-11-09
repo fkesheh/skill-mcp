@@ -11,12 +11,52 @@ A Model Context Protocol (MCP) server that enables Claude to manage skills store
 
 ## Overview
 
+**TL;DR:** Write Python code that unifies multiple skills in one execution - follows [Anthropic's MCP pattern](https://www.anthropic.com/engineering/code-execution-with-mcp) for 98.7% more efficient agents.
+
 This project consists of two main components:
 
 1. **MCP Server** (`src/skill_mcp/server.py`) - A Python package providing 5 unified CRUD tools for skill management
 2. **Skills Directory** (`~/.skill-mcp/skills/`) - Where you store and manage your skills
 
 ## Key Advantages
+
+### 🚀 Unified Multi-Skill Execution (Code Execution with MCP)
+
+**Build once, compose everywhere** - Execute Python code that seamlessly combines multiple skills in a single run:
+
+```python
+# One execution, multiple skills unified!
+# Imports from calculator, data-processor, and weather skills
+from math_utils import calculate_average          # calculator skill
+from json_fetcher import fetch_json                # data-processor skill
+from weather_api import get_forecast               # weather skill
+
+# Fetch weather data
+weather = fetch_json('https://api.weather.com/cities')
+
+# Calculate averages using calculator utilities
+temps = [city['temp'] for city in weather['cities']]
+avg_temp = calculate_average(temps)
+
+# Get detailed forecast
+forecast = get_forecast('London')
+print(f"Average temperature: {avg_temp}°F")
+print(f"London forecast: {forecast}")
+```
+
+**What makes this powerful:**
+- ✅ **Context-efficient** - Dependencies and env vars auto-aggregated from all referenced skills
+- ✅ **Composable** - Mix and match utilities from any skill like building blocks
+- ✅ **No redundancy** - Declare PEP 723 dependencies once in library skills, reuse everywhere
+- ✅ **Progressive disclosure** - Load only the skills you need, when you need them
+- ✅ **Follows Anthropic's MCP pattern** - [Code execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp) for efficient agents
+
+**Efficiency gains:**
+- 📉 **98.7% fewer tokens** when discovering tools progressively vs loading all upfront
+- 🔄 **Intermediate results stay in code** - Process large datasets without bloating context
+- ⚡ **Single execution** - Complex multi-step workflows in one code block instead of chained tool calls
+
+This aligns with Anthropic's research showing agents scale better by writing code to call tools rather than making direct tool calls for each operation.
 
 ### 🔓 Not Locked to Claude UI
 
@@ -100,13 +140,15 @@ Instead of manually copying, zipping, and uploading files:
 - ✅ Capture stdout and stderr
 - ✅ 30-second timeout for safety
 
-### Direct Python Execution
+### Direct Python Execution - Multi-Skill Unification 🚀
+- ✅ **UNIFY MULTIPLE SKILLS in one execution** - Combine utilities from different skills seamlessly
 - ✅ **Execute Python code directly** without creating script files
-- ✅ **Cross-skill imports** - Import modules from other skills as reusable libraries
-- ✅ **Automatic dependency aggregation** - Dependencies from imported skills are automatically included
-- ✅ **Environment variable loading** - .env files from referenced skills are automatically loaded
+- ✅ **Cross-skill imports** - Import modules from ANY skill as reusable libraries
+- ✅ **Automatic dependency aggregation** - Dependencies from ALL imported skills auto-merged
+- ✅ **Environment variable loading** - .env files from ALL referenced skills auto-loaded
 - ✅ **PEP 723 support** - Inline dependency declarations in code
-- ✅ Perfect for quick experiments, data analysis, and building on existing skill libraries
+- ✅ **98.7% more efficient** - Follows Anthropic's recommended MCP pattern for scalable agents
+- ✅ Perfect for multi-skill workflows, quick experiments, data analysis, and complex pipelines
 
 ### Environment Variables
 - ✅ List environment variable keys (secure - no values shown)
@@ -253,9 +295,15 @@ print(df.head())
 uv run example-skill/scripts/fetch_data.py
 ```
 
-## Direct Python Code Execution
+## Direct Python Code Execution - Unify Multiple Skills in One Run
 
-The `execute_python_code` tool allows you to run Python code directly without creating files. This is perfect for quick experiments, data analysis, and building reusable skill libraries.
+The `execute_python_code` tool allows you to run Python code that **combines multiple skills in a single execution**. This is perfect for:
+- 🔄 **Multi-skill workflows** - Import and compose utilities from different skills
+- 🧪 **Quick experiments** - Test code without creating files
+- 📊 **Data analysis** - Process data using libraries from multiple skills
+- 🏗️ **Building on reusable skill libraries** - Create specialized utilities once, use everywhere
+
+**Key insight from Anthropic's research:** Agents scale better by writing code to call tools instead of making direct tool calls. This approach reduces context usage by up to 98.7% and enables more efficient workflows.
 
 ### Basic Usage
 
@@ -272,9 +320,11 @@ response = requests.get("https://api.example.com/data")
 print(response.json())
 ```
 
-### Cross-Skill Imports (Building Reusable Libraries)
+### Cross-Skill Imports - Unifying Multiple Skills
 
-Create utility skills once and import them anywhere:
+**The power of composition** - Create utility skills once and combine them in endless ways:
+
+**Real-world example:** Process sales data by unifying calculator, data-processor, and CRM skills:
 
 **Step 1: Create a calculator skill with reusable modules**
 ```python
@@ -286,15 +336,46 @@ def multiply(a, b):
     return a * b
 ```
 
-**Step 2: Import and use in your code**
+**Step 2: Create data-processor skill utilities**
 ```python
-# Execute this code with skill_references: ["calculator:math_utils.py"]
-from math_utils import add, multiply
+# data-processor:csv_parser.py
+# /// script
+# dependencies = ["pandas>=2.0.0"]
+# ///
+import pandas as pd
 
-result = add(10, 20)
-product = multiply(5, 6)
-print(f"Sum: {result}, Product: {product}")
+def parse_csv_url(url):
+    return pd.read_csv(url)
+
+def filter_by_status(df, status):
+    return df[df['status'] == status]
 ```
+
+**Step 3: Unify both skills in one execution!**
+```python
+# Execute with skill_references: ["calculator:math_utils.py", "data-processor:csv_parser.py"]
+from math_utils import calculate_average
+from csv_parser import parse_csv_url, filter_by_status
+
+# Get sales data
+sales_df = parse_csv_url('https://example.com/sales.csv')
+
+# Filter active deals
+active_deals = filter_by_status(sales_df, 'active')
+
+# Calculate average deal size using calculator skill
+deal_values = active_deals['amount'].tolist()
+avg_deal = calculate_average(deal_values)
+
+print(f"Active deals: {len(active_deals)}")
+print(f"Average deal size: ${avg_deal:,.2f}")
+```
+
+**What just happened:**
+- ✅ **Two skills unified** - calculator + data-processor in one execution
+- ✅ **Zero redundancy** - pandas dependency declared once in csv_parser.py, auto-included
+- ✅ **Composable** - Mix and match any skills like LEGO blocks
+- ✅ **Context-efficient** - Only loaded the specific modules needed
 
 ### Automatic Dependency Aggregation
 
@@ -349,11 +430,15 @@ print(data)
 
 ### Use Cases
 
+- 🔄 **Multi-skill workflows** - **THE KILLER FEATURE** - Unify utilities from multiple skills in one execution
+  - Example: Combine API client + data parser + analytics calculator in single run
+  - Example: Chain together scraper + NLP processor + notification sender
+  - Example: Merge CRM data + payment processor + reporting tools
 - ✅ **Quick data analysis** - Run pandas/numpy code without creating files
 - ✅ **API testing** - Test HTTP requests with inline dependencies
 - ✅ **Reusable libraries** - Build once, import everywhere
 - ✅ **Rapid prototyping** - Experiment with code before committing to files
-- ✅ **Cross-skill workflows** - Combine utilities from multiple skills
+- ✅ **Complex pipelines** - Build multi-stage data processing in one code block
 
 ### Comparison: `run_skill_script` vs `execute_python_code`
 
@@ -364,15 +449,16 @@ Both tools support PEP 723, but have different use cases:
 | **PEP 723 Support** | ✅ YES | ✅ YES |
 | **Requires file** | ✅ Yes - executes existing script files | ❌ No - runs code directly |
 | **Languages supported** | Python, JavaScript, Bash, any executable | Python only |
-| **Cross-skill imports** | ❌ No | ✅ YES - import from other skills |
-| **Dependency aggregation** | ❌ No | ✅ YES - auto-merges deps from imports |
-| **Environment loading** | Loads skill's .env only | Loads .env from all referenced skills |
-| **Best for** | Running complete scripts, batch jobs | Quick experiments, cross-skill workflows |
-| **Example use case** | `python data_processor.py --input data.csv` | `from utils import process; process(data)` |
+| **Cross-skill imports** | ❌ No - single skill only | ✅ YES - **UNIFY MULTIPLE SKILLS** |
+| **Dependency aggregation** | ❌ No | ✅ YES - **auto-merges deps from all imported skills** |
+| **Environment loading** | Loads skill's .env only | **Loads .env from ALL referenced skills** |
+| **Context efficiency** | Standard | **98.7% token reduction** (Anthropic research) |
+| **Best for** | Running complete scripts, batch jobs | **Multi-skill workflows**, quick experiments |
+| **Example use case** | `python data_processor.py --input data.csv` | **`from skill1 import x; from skill2 import y; combined()`** |
 
 **Key Insight:**
 - Use `run_skill_script` when you have a script file ready to execute
-- Use `execute_python_code` when you want to quickly run code without creating files, especially when combining utilities from multiple skills
+- Use `execute_python_code` when you want to **UNIFY MULTIPLE SKILLS in one execution** - This is the recommended approach per [Anthropic's MCP research](https://www.anthropic.com/engineering/code-execution-with-mcp) for building efficient, scalable agents
 
 ## Usage Examples
 
@@ -609,12 +695,13 @@ tests/
 - ✅ **Consistent patterns** - All tools follow the same operation-based model
 - ✅ **Better error handling** - Unified error responses across all operations
 
-**Direct Python Execution:**
-- ✅ **execute_python_code** - Run Python code without creating files
-- ✅ **Cross-skill imports** - Import modules from other skills as reusable libraries
-- ✅ **Automatic dependency aggregation** - Dependencies from imported skills auto-included
-- ✅ **Automatic environment loading** - .env files from referenced skills auto-loaded
+**Direct Python Execution (Multi-Skill Unification):**
+- 🚀 **execute_python_code** - **UNIFY MULTIPLE SKILLS in one execution** (Anthropic's recommended MCP pattern)
+- ✅ **Cross-skill imports** - Import modules from ANY skill as reusable libraries
+- ✅ **Automatic dependency aggregation** - Dependencies from ALL imported skills auto-merged
+- ✅ **Automatic environment loading** - .env files from ALL referenced skills auto-loaded
 - ✅ **PEP 723 support** - Inline dependency declarations
+- 📉 **98.7% token reduction** - Load skills progressively instead of all upfront
 
 **Enhanced Features:**
 - ✅ **Skill templates** - Create skills from templates (basic, python, bash, nodejs)
