@@ -153,7 +153,15 @@ class SkillCrud:
         # Files
         result += f"Files ({len(details.files)}):\n"
         for file in details.files:
-            result += f"  - {file.path} ({file.size} bytes, type: {file.type})"
+            # Format modification time
+            modified_str = ""
+            if file.modified:
+                from datetime import datetime
+
+                modified_dt = datetime.fromtimestamp(file.modified)
+                modified_str = f", modified: {modified_dt.strftime('%Y-%m-%d')}"
+
+            result += f"  - {file.path} ({file.size} bytes{modified_str})"
             if file.is_executable:
                 result += " [executable]"
                 if file.has_uv_deps is not None:

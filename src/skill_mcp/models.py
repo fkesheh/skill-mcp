@@ -90,6 +90,7 @@ class FileInfo(BaseModel):
     type: str  # 'python', 'shell', 'markdown', 'unknown'
     is_executable: bool = False
     has_uv_deps: Optional[bool] = None  # Only for Python scripts
+    modified: Optional[float] = None  # Unix timestamp (from st_mtime)
 
 
 class ScriptInfo(BaseModel):

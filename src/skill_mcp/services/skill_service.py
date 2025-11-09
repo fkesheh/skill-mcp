@@ -121,6 +121,7 @@ class SkillService:
                 type=file_type,
                 is_executable=is_exec,
                 has_uv_deps=has_uv_deps,
+                modified=file_info.get("modified"),
             )
             files.append(file_obj)
 

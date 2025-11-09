@@ -41,7 +41,15 @@ class FileService:
         for item in sorted(skill_dir.rglob("*")):
             if item.is_file():
                 rel_path = item.relative_to(skill_dir)
-                files.append({"path": str(rel_path), "size": item.stat().st_size, "type": "file"})
+                stat = item.stat()
+                files.append(
+                    {
+                        "path": str(rel_path),
+                        "size": stat.st_size,
+                        "type": "file",
+                        "modified": stat.st_mtime,
+                    }
+                )
 
         return files
 

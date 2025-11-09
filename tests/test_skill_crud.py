@@ -140,6 +140,54 @@ class TestSkillCrudGet:
         assert len(result) == 1
         assert "Error" in result[0].text
 
+    @pytest.mark.asyncio
+    async def test_get_shows_file_metadata(self, test_skill_name, cleanup_test_skill):
+        """Test that get operation shows file metadata (size and modification time)."""
+        import time
+
+        # Create a skill
+        create_input = SkillCrudInput(
+            operation="create",
+            skill_name=test_skill_name,
+            description="Test skill",
+            template="python",
+        )
+        await SkillCrud.skill_crud(create_input)
+
+        # Wait a moment to ensure timestamps are set
+        time.sleep(0.1)
+
+        # Get skill details
+        get_input = SkillCrudInput(operation="get", skill_name=test_skill_name)
+        result = await SkillCrud.skill_crud(get_input)
+
+        assert len(result) == 1
+        output = result[0].text
+
+        # Should show file list
+        assert "Files (" in output
+
+        # Should show SKILL.md with metadata
+        assert "SKILL.md" in output
+
+        # Should show file size in bytes
+        assert "bytes" in output
+
+        # Should show modification time in readable format (e.g., "modified: 2025-11-09")
+        assert "modified:" in output
+
+        # Check that modification date is shown (format: YYYY-MM-DD)
+        import re
+
+        assert re.search(r"modified: \d{4}-\d{2}-\d{2}", output), (
+            "Should show modification date in YYYY-MM-DD format"
+        )
+
+        # If python template was used, should also show main.py with metadata
+        if "main.py" in output:
+            # Count occurrences of "modified:" - should be at least 2 (SKILL.md + main.py)
+            assert output.count("modified:") >= 2
+
 
 class TestSkillCrudValidate:
     """Tests for validate operation."""
