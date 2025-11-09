@@ -41,6 +41,11 @@ class TemplateRegistry:
         "bash": TemplateSpec(
             name="bash", description="Bash script skill", files=["SKILL.md", "main.sh"]
         ),
+        "nodejs": TemplateSpec(
+            name="nodejs",
+            description="Node.js skill with main script and package.json",
+            files=["SKILL.md", "main.js", "package.json"],
+        ),
     }
 
     @staticmethod

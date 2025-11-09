@@ -24,7 +24,7 @@ class SkillCrud:
                 description="""Unified CRUD tool for skill management.
 
 **Operations:**
-- **create**: Create a new skill with templates (basic, python, bash)
+- **create**: Create a new skill with templates (basic, python, bash, nodejs)
 - **list**: List all skills with optional search (supports text and regex)
 - **search**: Search for skills by pattern (text or regex)
 - **get**: Get detailed information about a specific skill
@@ -423,6 +423,33 @@ echo "Hello from {skill_name}!"
             )
             script_path.chmod(0o755)
             files_created.append("main.sh")
+
+        elif input_data.template == "nodejs":
+            script_path = skill_dir / "main.js"
+            script_path.write_text(
+                """#!/usr/bin/env node
+// Main script for {skill_name}
+
+console.log("Hello from {skill_name}!");
+""".format(skill_name=input_data.skill_name)
+            )
+            files_created.append("main.js")
+
+            # Create package.json
+            package_json_path = skill_dir / "package.json"
+            package_json_content = """{{
+  "name": "{skill_name}",
+  "version": "1.0.0",
+  "description": "{description}",
+  "main": "main.js",
+  "scripts": {{
+    "start": "node main.js"
+  }},
+  "dependencies": {{}}
+}}
+""".format(skill_name=input_data.skill_name, description=description)
+            package_json_path.write_text(package_json_content)
+            files_created.append("package.json")
 
         return [
             types.TextContent(

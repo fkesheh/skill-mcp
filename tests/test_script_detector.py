@@ -49,6 +49,14 @@ def test_get_file_type_unknown():
     assert get_file_type(Path("file")) == "unknown"
 
 
+def test_get_file_type_javascript():
+    """Test get_file_type for JavaScript files."""
+    from skill_mcp.utils.script_detector import get_file_type
+
+    assert get_file_type(Path("script.js")) == "javascript"
+    assert get_file_type(Path("app.mjs")) == "javascript"
+
+
 def test_is_executable_script_python(tmp_path):
     """Test is_executable_script for Python files."""
     from skill_mcp.utils.script_detector import is_executable_script
@@ -229,3 +237,51 @@ def test_list_executable_scripts_nonexistent_dir(tmp_path):
     scripts = list_executable_scripts(nonexistent)
 
     assert len(scripts) == 0
+
+
+def test_has_npm_dependencies_with_package_json(tmp_path):
+    """Test has_npm_dependencies detects package.json in skill directory."""
+    from skill_mcp.utils.script_detector import has_npm_dependencies
+
+    # Create a skill directory structure
+    skill_dir = tmp_path / "my-skill"
+    skill_dir.mkdir()
+
+    script = skill_dir / "script.js"
+    script.write_text("console.log('hello');")
+
+    # Create package.json in skill directory
+    package_json = skill_dir / "package.json"
+    package_json.write_text('{"dependencies": {"axios": "^1.0.0"}}')
+
+    assert has_npm_dependencies(script) is True
+
+
+def test_has_npm_dependencies_without_package_json(tmp_path):
+    """Test has_npm_dependencies returns False without package.json."""
+    from skill_mcp.utils.script_detector import has_npm_dependencies
+
+    skill_dir = tmp_path / "my-skill"
+    skill_dir.mkdir()
+
+    script = skill_dir / "script.js"
+    script.write_text("console.log('hello');")
+
+    assert has_npm_dependencies(script) is False
+
+
+def test_has_npm_dependencies_non_javascript(tmp_path):
+    """Test has_npm_dependencies returns False for non-JavaScript files."""
+    from skill_mcp.utils.script_detector import has_npm_dependencies
+
+    skill_dir = tmp_path / "my-skill"
+    skill_dir.mkdir()
+
+    script = skill_dir / "script.py"
+    script.write_text("print('hello')")
+
+    # Even with package.json, Python scripts should return False
+    package_json = skill_dir / "package.json"
+    package_json.write_text('{"dependencies": {}}')
+
+    assert has_npm_dependencies(script) is False

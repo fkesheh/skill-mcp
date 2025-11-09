@@ -26,7 +26,7 @@ class SkillCrudInput(BaseModel):
     )
     template: Optional[str] = Field(
         default="basic",
-        description="Template to use for create: 'basic', 'python', 'bash', 'api-client'",
+        description="Template to use for create: 'basic', 'python', 'bash', 'nodejs'",
     )
     search: Optional[str] = Field(
         default=None, description="Search pattern for list (text or regex)"

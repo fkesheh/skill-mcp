@@ -80,6 +80,86 @@ class TestSkillCrudCreate:
         assert len(result) == 1
         assert f"Successfully created skill '{skill_name}'" in result[0].text
 
+        # Verify main.py was created with hello world content
+        main_py = SKILLS_DIR / skill_name / "main.py"
+        assert main_py.exists()
+        content = main_py.read_text()
+        assert "def main():" in content
+        assert "Hello from" in content
+
+        # Cleanup
+        skill_dir = SKILLS_DIR / skill_name
+        if skill_dir.exists():
+            import shutil
+
+            shutil.rmtree(skill_dir)
+
+    @pytest.mark.asyncio
+    async def test_create_bash_skill(self, cleanup_test_skill):
+        """Test creating a Bash skill with template."""
+        skill_name = "test-bash-skill"
+        input_data = SkillCrudInput(
+            operation="create",
+            skill_name=skill_name,
+            description="Bash test skill",
+            template="bash",
+        )
+        result = await SkillCrud.skill_crud(input_data)
+
+        assert len(result) == 1
+        assert f"Successfully created skill '{skill_name}'" in result[0].text
+
+        # Verify main.sh was created with hello world content
+        main_sh = SKILLS_DIR / skill_name / "main.sh"
+        assert main_sh.exists()
+        content = main_sh.read_text()
+        assert "#!/usr/bin/env bash" in content
+        assert "echo" in content
+        assert "Hello from" in content
+
+        # Verify it's executable
+        import stat
+
+        assert main_sh.stat().st_mode & stat.S_IXUSR
+
+        # Cleanup
+        skill_dir = SKILLS_DIR / skill_name
+        if skill_dir.exists():
+            import shutil
+
+            shutil.rmtree(skill_dir)
+
+    @pytest.mark.asyncio
+    async def test_create_nodejs_skill(self, cleanup_test_skill):
+        """Test creating a Node.js skill with template."""
+        skill_name = "test-nodejs-skill"
+        input_data = SkillCrudInput(
+            operation="create",
+            skill_name=skill_name,
+            description="Node.js test skill",
+            template="nodejs",
+        )
+        result = await SkillCrud.skill_crud(input_data)
+
+        assert len(result) == 1
+        assert f"Successfully created skill '{skill_name}'" in result[0].text
+
+        # Verify main.js was created with hello world content
+        main_js = SKILLS_DIR / skill_name / "main.js"
+        assert main_js.exists()
+        content = main_js.read_text()
+        assert "console.log" in content
+        assert "Hello from" in content
+
+        # Verify package.json was created
+        package_json = SKILLS_DIR / skill_name / "package.json"
+        assert package_json.exists()
+        import json
+
+        pkg_content = json.loads(package_json.read_text())
+        assert pkg_content["name"] == skill_name
+        assert "dependencies" in pkg_content
+
         # Cleanup
         skill_dir = SKILLS_DIR / skill_name
         if skill_dir.exists():

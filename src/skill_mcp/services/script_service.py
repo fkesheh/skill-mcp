@@ -13,7 +13,7 @@ from skill_mcp.core.config import (
 from skill_mcp.core.exceptions import InvalidPathError, ScriptExecutionError, SkillNotFoundError
 from skill_mcp.services.env_service import EnvironmentService
 from skill_mcp.utils.path_utils import validate_path
-from skill_mcp.utils.script_detector import has_uv_dependencies
+from skill_mcp.utils.script_detector import has_npm_dependencies, has_uv_dependencies
 
 
 class ScriptResult:
@@ -111,6 +111,28 @@ class ScriptService:
                 cmd = ["uv", "run", str(full_script_path)] + args
             else:
                 cmd = [DEFAULT_PYTHON_INTERPRETER, str(full_script_path)] + args
+        elif ext in (".js", ".mjs"):
+            # Check if script has package.json
+            if has_npm_dependencies(full_script_path):
+                # Run npm install if node_modules doesn't exist
+                node_modules = full_script_path.parent / "node_modules"
+                if not node_modules.exists():
+                    try:
+                        subprocess.run(
+                            ["npm", "install"],
+                            cwd=str(full_script_path.parent),
+                            env=env,
+                            capture_output=True,
+                            timeout=SCRIPT_TIMEOUT_SECONDS,
+                            check=True,
+                        )
+                    except subprocess.CalledProcessError as e:
+                        raise ScriptExecutionError(f"npm install failed: {e.stderr}")
+                    except subprocess.TimeoutExpired:
+                        raise ScriptExecutionError(
+                            f"npm install timed out ({SCRIPT_TIMEOUT_SECONDS} seconds)"
+                        )
+            cmd = ["node", str(full_script_path)] + args
         elif ext == ".sh":
             cmd = ["bash", str(full_script_path)] + args
         else:

@@ -20,6 +20,8 @@ def get_file_type(file_path: Path) -> str:
         ".sh": "shell",
         ".bash": "shell",
         ".zsh": "shell",
+        ".js": "javascript",
+        ".mjs": "javascript",
         ".md": "markdown",
         ".json": "json",
         ".yaml": "yaml",
@@ -49,7 +51,7 @@ def is_executable_script(file_path: Path) -> bool:
     file_type = get_file_type(file_path)
 
     # Known executable types
-    if file_type in ("python", "shell"):
+    if file_type in ("python", "shell", "javascript"):
         return True
 
     # Check for shebang
@@ -93,6 +95,27 @@ def has_uv_dependencies(script_path: Path) -> bool:
     try:
         content = script_path.read_text(encoding="utf-8", errors="ignore")
         return "# /// script" in content or "# /// pyproject" in content
+    except Exception:
+        return False
+
+
+def has_npm_dependencies(script_path: Path) -> bool:
+    """
+    Check if JavaScript script has package.json in its directory.
+
+    Args:
+        script_path: Path to the JavaScript script
+
+    Returns:
+        True if script directory contains package.json
+    """
+    if script_path.suffix.lower() not in (".js", ".mjs"):
+        return False
+
+    try:
+        # Check if package.json exists in the script's directory
+        package_json = script_path.parent / "package.json"
+        return package_json.exists()
     except Exception:
         return False
 
