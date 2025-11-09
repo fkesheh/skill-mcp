@@ -23,6 +23,11 @@ class SkillCrud:
                 name="skill_crud",
                 description="""Unified CRUD tool for skill management.
 
+IMPORTANT NOTES:
+- Skills are stored in ~/.skill-mcp/skills directory
+- All file paths in responses are relative to the skill directory (e.g., 'main.py', not full paths)
+- To execute scripts, use the 'run_skill_script' tool, NOT external bash/shell tools
+
 **Operations:**
 - **create**: Create a new skill with templates (basic, python, bash, nodejs)
 - **list**: List all skills with optional search (supports text and regex)
@@ -131,7 +136,7 @@ class SkillCrud:
                 result += f"{status} {skill.name}\n"
                 if skill.description:
                     result += f"   Description: {skill.description}\n"
-                result += f"   Path: {skill.path}\n\n"
+                result += "\n"
 
         return [types.TextContent(type="text", text=result)]
 
@@ -174,7 +179,7 @@ class SkillCrud:
                 result += f"{status} {skill.name}\n"
                 if skill.description:
                     result += f"   Description: {skill.description}\n"
-                result += f"   Path: {skill.path}\n\n"
+                result += "\n"
 
         return [types.TextContent(type="text", text=result)]
 

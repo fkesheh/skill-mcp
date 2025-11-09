@@ -18,15 +18,20 @@ class ScriptTools:
                 name="run_skill_script",
                 description="""Execute a script or executable program within a skill directory with optional arguments and automatic dependency management.
 
-This tool runs scripts in multiple languages and automatically manages dependencies:
+IMPORTANT: ALWAYS use this tool to execute scripts. DO NOT use external bash/shell tools to execute scripts directly. This tool provides:
+- Automatic dependency management (Python PEP 723, npm packages)
+- Proper environment variable injection from .env files
+- Secure execution within skill directory boundaries
+- Proper error handling and output capture
 
 SUPPORTED LANGUAGES:
 - Python: Automatically installs PEP 723 inline dependencies via 'uv run' if declared in the script
+- JavaScript/Node.js: Automatically runs 'npm install' if package.json exists
 - Bash: Executes shell scripts (.sh files)
 - Other: Any executable file with proper shebang line
 
 FEATURES:
-- Automatic dependency installation: Python scripts with PEP 723 metadata (/* script */ dependencies) are run with 'uv run' automatically
+- Automatic dependency installation: Python scripts with PEP 723 metadata are run with 'uv run', Node.js scripts install npm dependencies
 - Environment variables: Loads skill-specific .env file and injects variables into script environment
 - Working directory: Can specify a subdirectory to run the script from
 - Arguments: Pass command-line arguments to the script
@@ -34,15 +39,14 @@ FEATURES:
 
 PARAMETERS:
 - skill_name: The name of the skill directory (e.g., 'weather-skill')
-- script_path: Relative path to the script (e.g., 'scripts/fetch_weather.py', 'bin/process.sh')
-- args: Optional list of command-line arguments to pass to the script (e.g., ['--verbose', 'input.txt'])
-- working_dir: Optional working directory for execution (relative to skill root)
+- script_path: Relative path to the script within skill directory (e.g., 'main.py', 'scripts/fetch_weather.py', 'bin/process.sh')
+- args: Optional list of command-line arguments (e.g., ['--verbose', 'input.txt'])
+- working_dir: Optional working directory relative to skill root (e.g., 'scripts')
 
-BEHAVIOR:
-- Python scripts with PEP 723 metadata are detected automatically and run with 'uv run'
-- Environment variables from skill's .env file are available to the script
-- Script must be executable or have proper shebang line
-- Script path is relative to the skill directory
+IMPORTANT PATH NOTES:
+- All paths are RELATIVE to the skill directory, never absolute paths
+- Script path example: 'main.py' NOT '/Users/username/.skill-mcp/skills/my-skill/main.py'
+- Working dir example: 'scripts' NOT '/full/path/to/scripts'
 
 RETURNS: Script execution result with:
 - Exit code (0 = success, non-zero = failure)

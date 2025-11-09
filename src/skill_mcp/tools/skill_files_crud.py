@@ -17,6 +17,11 @@ class SkillFilesCrud:
                 name="skill_files_crud",
                 description="""Unified CRUD tool for skill file operations. Supports both single and bulk operations.
 
+IMPORTANT PATH NOTES:
+- All file paths are RELATIVE to the skill directory (e.g., 'main.py', 'scripts/utils.py')
+- NEVER use absolute paths (e.g., NOT '/Users/username/.skill-mcp/skills/my-skill/main.py')
+- To execute scripts, use the 'run_skill_script' tool, NOT external bash/shell tools
+
 **Operations:**
 - **read**: Read a file's content
 - **create**: Create one or more files (supports atomic mode for bulk)
