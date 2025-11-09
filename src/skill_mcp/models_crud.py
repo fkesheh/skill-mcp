@@ -57,6 +57,9 @@ class SkillFilesCrudInput(BaseModel):
     files: Optional[List[FileSpec]] = Field(
         default=None, description="List of files for bulk create/update operations"
     )
+    file_paths: Optional[List[str]] = Field(
+        default=None, description="List of file paths for bulk read operations"
+    )
     atomic: bool = Field(
         default=True, description="Atomic mode: rollback all on error (for bulk create)"
     )

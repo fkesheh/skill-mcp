@@ -40,6 +40,13 @@ class SkillFilesCrud:
 
 **Bulk File Examples:**
 ```json
+// Read multiple files
+{
+  "operation": "read",
+  "skill_name": "my-skill",
+  "file_paths": ["file1.py", "file2.py", "file3.py"]
+}
+
 // Create multiple files atomically (all-or-nothing)
 {
   "operation": "create",
@@ -92,7 +99,35 @@ class SkillFilesCrud:
 
     @staticmethod
     async def _handle_read(input_data: SkillFilesCrudInput) -> list[types.TextContent]:
-        """Handle read operation."""
+        """Handle read operation (single or bulk)."""
+        # Bulk operation
+        if input_data.file_paths:
+            if input_data.file_path:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text="Error: Cannot specify both 'file_paths' (bulk) and 'file_path' (single) parameters",
+                    )
+                ]
+
+            results = []
+            errors = []
+
+            for file_path in input_data.file_paths:
+                try:
+                    content = FileService.read_file(input_data.skill_name, file_path)
+                    results.append(f"=== {file_path} ===\n{content}")
+                except Exception as e:
+                    errors.append(f"Error reading '{file_path}': {str(e)}")
+
+            # Combine results
+            output = "\n\n".join(results)
+            if errors:
+                output += "\n\n" + "\n".join(errors)
+
+            return [types.TextContent(type="text", text=output)]
+
+        # Single operation
         if not input_data.file_path:
             return [
                 types.TextContent(

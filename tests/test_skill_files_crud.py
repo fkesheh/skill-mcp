@@ -166,6 +166,56 @@ class TestSkillFilesCrudRead:
         assert "file_path is required" in result[0].text
 
     @pytest.mark.asyncio
+    async def test_read_multiple_files(self, setup_test_skill):
+        """Test reading multiple files in bulk."""
+        # Create test files
+        file1 = SKILLS_DIR / setup_test_skill / "file1.py"
+        file2 = SKILLS_DIR / setup_test_skill / "file2.py"
+        file3 = SKILLS_DIR / setup_test_skill / "file3.py"
+
+        file1.write_text("# File 1 content")
+        file2.write_text("# File 2 content")
+        file3.write_text("# File 3 content")
+
+        # Read multiple files
+        input_data = SkillFilesCrudInput(
+            operation="read",
+            skill_name=setup_test_skill,
+            file_paths=["file1.py", "file2.py", "file3.py"],
+        )
+        result = await SkillFilesCrud.skill_files_crud(input_data)
+
+        assert len(result) == 1
+        output = result[0].text
+
+        # Should contain all three files
+        assert "=== file1.py ===" in output
+        assert "# File 1 content" in output
+        assert "=== file2.py ===" in output
+        assert "# File 2 content" in output
+        assert "=== file3.py ===" in output
+        assert "# File 3 content" in output
+
+    @pytest.mark.asyncio
+    async def test_read_multiple_files_some_missing(self, setup_test_skill):
+        """Test reading multiple files where some don't exist."""
+        # Create only one file
+        file1 = SKILLS_DIR / setup_test_skill / "exists.py"
+        file1.write_text("# Exists")
+
+        # Try to read multiple files (one exists, one doesn't)
+        input_data = SkillFilesCrudInput(
+            operation="read", skill_name=setup_test_skill, file_paths=["exists.py", "missing.py"]
+        )
+        result = await SkillFilesCrud.skill_files_crud(input_data)
+
+        assert len(result) == 1
+        output = result[0].text
+
+        # Should show error for missing file
+        assert "Error" in output or "does not exist" in output
+
+    @pytest.mark.asyncio
     async def test_read_nonexistent_file(self, setup_test_skill):
         """Test reading a nonexistent file."""
         input_data = SkillFilesCrudInput(
