@@ -9,6 +9,11 @@ _default_skills_dir = Path.home() / ".skill-mcp" / "skills"
 SKILLS_DIR = Path(os.getenv("SKILL_MCP_DIR", str(_default_skills_dir)))
 SKILLS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Knowledge directory (for documentation, articles, guides)
+_default_knowledge_dir = Path.home() / ".skill-mcp" / "knowledge"
+KNOWLEDGE_DIR = Path(os.getenv("SKILL_MCP_KNOWLEDGE_DIR", str(_default_knowledge_dir)))
+KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
+
 # File operation limits
 MAX_FILE_SIZE = 1_000_000  # 1MB limit for file operations
 MAX_OUTPUT_SIZE = 100_000  # 100KB limit for script output

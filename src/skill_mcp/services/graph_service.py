@@ -272,6 +272,77 @@ class GraphService:
                 return dict(record["e"])
             return {}
 
+    async def create_knowledge_node(
+        self,
+        knowledge_id: str,
+        title: str,
+        content: str,
+        category: str = "note",
+        tags: Optional[List[str]] = None,
+        author: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create or update a knowledge document node.
+
+        Args:
+            knowledge_id: Unique identifier (e.g., filename without extension)
+            title: Title of the knowledge document
+            content: Content (markdown text)
+            category: Category (tutorial, guide, reference, note, article)
+            tags: List of tags for categorization
+            author: Optional author name
+
+        Returns:
+            Dictionary with node properties
+        """
+        if not self.is_connected():
+            raise GraphServiceError("Not connected to Neo4j")
+
+        query = """
+        MERGE (k:Knowledge {id: $knowledge_id})
+        SET k.title = $title,
+            k.content = $content,
+            k.category = $category,
+            k.tags = $tags,
+            k.author = $author,
+            k.updated_at = datetime($updated_at)
+        ON CREATE SET k.created_at = datetime($created_at)
+        RETURN k
+        """
+
+        params = {
+            "knowledge_id": knowledge_id,
+            "title": title,
+            "content": content,
+            "category": category,
+            "tags": tags or [],
+            "author": author,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+        }
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query, params)
+            record = result.single()
+            if record:
+                return dict(record["k"])
+            return {}
+
+    async def delete_knowledge_node(self, knowledge_id: str) -> None:
+        """Delete a knowledge node and its relationships."""
+        if not self.is_connected():
+            raise GraphServiceError("Not connected to Neo4j")
+
+        query = """
+        MATCH (k:Knowledge {id: $knowledge_id})
+        DETACH DELETE k
+        """
+
+        params = {"knowledge_id": knowledge_id}
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            session.run(query, params)
+
     # ===================
     # Relationship Operations
     # ===================
@@ -374,6 +445,49 @@ class GraphService:
         """
 
         params = {"skill_name": skill_name, "key": key}
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            session.run(query, params)
+
+    async def link_knowledge_to_skill(
+        self, knowledge_id: str, skill_name: str, relationship_type: str = "EXPLAINS"
+    ) -> None:
+        """
+        Create relationship between knowledge and skill.
+
+        Args:
+            knowledge_id: ID of the knowledge document
+            skill_name: Name of the skill
+            relationship_type: Type of relationship (EXPLAINS, REFERENCES, USES)
+        """
+        if not self.is_connected():
+            raise GraphServiceError("Not connected to Neo4j")
+
+        query = f"""
+        MATCH (k:Knowledge {{id: $knowledge_id}})
+        MATCH (s:Skill {{name: $skill_name}})
+        MERGE (k)-[:{relationship_type}]->(s)
+        """
+
+        params = {"knowledge_id": knowledge_id, "skill_name": skill_name}
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            session.run(query, params)
+
+    async def link_knowledge_to_knowledge(
+        self, from_knowledge_id: str, to_knowledge_id: str
+    ) -> None:
+        """Create [:RELATED_TO] relationship between knowledge documents."""
+        if not self.is_connected():
+            raise GraphServiceError("Not connected to Neo4j")
+
+        query = """
+        MATCH (k1:Knowledge {id: $from_id})
+        MATCH (k2:Knowledge {id: $to_id})
+        MERGE (k1)-[:RELATED_TO]->(k2)
+        """
+
+        params = {"from_id": from_knowledge_id, "to_id": to_knowledge_id}
 
         with GraphService._driver.session(database=NEO4J_DATABASE) as session:
             session.run(query, params)

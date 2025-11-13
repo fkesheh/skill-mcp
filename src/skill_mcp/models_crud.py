@@ -83,10 +83,10 @@ class SkillEnvCrudInput(BaseModel):
 
 
 class GraphCrudInput(BaseModel):
-    """Unified input for graph CRUD operations."""
+    """Unified input for graph CRUD operations (skills and knowledge)."""
 
     operation: str = Field(
-        description="Operation to perform: 'sync', 'query', 'analyze', 'visualize', 'search', 'stats'"
+        description="Operation to perform: 'sync', 'query', 'analyze', 'visualize', 'search', 'stats', 'knowledge'"
     )
 
     # Sync operations
@@ -106,7 +106,7 @@ class GraphCrudInput(BaseModel):
     )
     query_type: Optional[str] = Field(
         default=None,
-        description="Predefined query type: 'related_skills', 'dependency_tree', 'skills_using_package', 'circular_deps', 'most_used_deps', 'orphaned_skills', 'complexity', 'imports', 'similar_skills', 'conflicts', 'execution_history', 'neighborhood'",
+        description="Predefined query type: 'related_skills', 'dependency_tree', 'skills_using_package', 'circular_deps', 'most_used_deps', 'orphaned_skills', 'complexity', 'imports', 'similar_skills', 'conflicts', 'execution_history', 'neighborhood', 'list_knowledge', 'knowledge_by_id', 'knowledge_by_category', 'knowledge_by_tag', 'knowledge_about_skill', 'skills_for_knowledge', 'related_knowledge', 'knowledge_network'",
     )
     depth: int = Field(default=2, description="Traversal depth for relationship queries (1-5)")
     package_name: Optional[str] = Field(
@@ -126,3 +126,37 @@ class GraphCrudInput(BaseModel):
     node_type: Optional[str] = Field(
         default="Skill", description="Node type to search: 'Skill', 'File', 'Dependency'"
     )
+
+    # Knowledge operations
+    knowledge_action: Optional[str] = Field(
+        default=None,
+        description="Knowledge action: 'create', 'update', 'delete', 'get', 'list', 'link_to_skill', 'link_to_knowledge'",
+    )
+    knowledge_id: Optional[str] = Field(
+        default=None, description="Knowledge document ID (for knowledge operations)"
+    )
+    knowledge_title: Optional[str] = Field(
+        default=None, description="Title of knowledge document (for create/update)"
+    )
+    knowledge_content: Optional[str] = Field(
+        default=None, description="Content of knowledge document (markdown)"
+    )
+    knowledge_category: Optional[str] = Field(
+        default="note",
+        description="Category: 'tutorial', 'guide', 'reference', 'note', 'article'",
+    )
+    knowledge_tags: Optional[List[str]] = Field(
+        default=None, description="Tags for categorization"
+    )
+    knowledge_author: Optional[str] = Field(default=None, description="Author name")
+    relationship_type: Optional[str] = Field(
+        default="EXPLAINS",
+        description="Relationship type for linking: 'EXPLAINS', 'REFERENCES', 'USES'",
+    )
+    target_knowledge_id: Optional[str] = Field(
+        default=None, description="Target knowledge ID for knowledge-to-knowledge links"
+    )
+    category_filter: Optional[str] = Field(
+        default=None, description="Category filter for knowledge queries"
+    )
+    tag_filter: Optional[str] = Field(default=None, description="Tag filter for knowledge queries")

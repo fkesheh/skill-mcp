@@ -165,9 +165,11 @@ Instead of manually copying, zipping, and uploading files:
 - ✅ **Auto-sync** - Automatically update graph when skills change
 - ✅ **Advanced queries** - Cypher queries for complex relationships
 - ✅ **Visualization ready** - Export for Cytoscape.js, Neo4j Browser, and more
+- ✅ **Knowledge documents** - Store tutorials, guides, and docs alongside skills
+- ✅ **Unified knowledge base** - Link documentation to skills via graph relationships
 - ✅ **100% optional** - Works perfectly fine without Neo4j
 
-**See [GRAPH.md](GRAPH.md) for complete documentation**
+**See [GRAPH.md](GRAPH.md) for skills graph | [KNOWLEDGE.md](KNOWLEDGE.md) for knowledge docs**
 
 ## Directory Structure
 
