@@ -14,10 +14,12 @@ from mcp.server import Server
 
 from skill_mcp.models import ExecutePythonCodeInput, RunSkillScriptInput
 from skill_mcp.models_crud import (
+    GraphCrudInput,
     SkillCrudInput,
     SkillEnvCrudInput,
     SkillFilesCrudInput,
 )
+from skill_mcp.tools.graph_crud import GraphCrud
 from skill_mcp.tools.script_tools import ScriptTools
 from skill_mcp.tools.skill_crud import SkillCrud
 from skill_mcp.tools.skill_env_crud import SkillEnvCrud
@@ -35,6 +37,7 @@ async def list_tools() -> list[types.Tool]:
     tools.extend(SkillFilesCrud.get_tool_definition())
     tools.extend(SkillEnvCrud.get_tool_definition())
     tools.extend(ScriptTools.get_script_tools())
+    tools.extend(GraphCrud.get_tool_definition())
     return tools
 
 
@@ -60,6 +63,11 @@ async def call_tool(name: str, arguments: Any) -> list[types.TextContent]:
         elif name == "run_skill_script":
             script_input = RunSkillScriptInput(**arguments)
             return await ScriptTools.run_skill_script(script_input)
+
+        # Graph tools
+        elif name == "skill_graph_crud":
+            graph_input = GraphCrudInput(**arguments)
+            return await GraphCrud.skill_graph_crud(graph_input)
 
         else:
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]

@@ -1,7 +1,7 @@
 [project]
 name = "skill-mcp"
-version = "0.1.1"
-description = "A Model Context Protocol (MCP) server for managing Claude skills"
+version = "0.2.0"
+description = "A Model Context Protocol (MCP) server for managing Claude skills with Neo4j knowledge graph"
 authors = [
     {name = "fkesheh"}
 ]
@@ -28,6 +28,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
     "pyyaml>=6.0.0",
+    "neo4j>=5.15.0",
 ]
 
 [project.scripts]

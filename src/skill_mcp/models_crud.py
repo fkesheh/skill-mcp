@@ -80,3 +80,49 @@ class SkillEnvCrudInput(BaseModel):
     keys: Optional[List[str]] = Field(
         default=None, description="Variable keys to delete (for 'delete' operation)"
     )
+
+
+class GraphCrudInput(BaseModel):
+    """Unified input for graph CRUD operations."""
+
+    operation: str = Field(
+        description="Operation to perform: 'sync', 'query', 'analyze', 'visualize', 'search', 'stats'"
+    )
+
+    # Sync operations
+    skill_name: Optional[str] = Field(
+        default=None, description="Skill name (for sync, analyze, query operations)"
+    )
+    sync_all: bool = Field(
+        default=False, description="Sync all skills to graph (for 'sync' operation)"
+    )
+    delete_skill: bool = Field(
+        default=False, description="Delete skill from graph (for 'sync' operation with skill_name)"
+    )
+
+    # Query operations
+    cypher_query: Optional[str] = Field(
+        default=None, description="Raw Cypher query string (for advanced users in 'query' operation)"
+    )
+    query_type: Optional[str] = Field(
+        default=None,
+        description="Predefined query type: 'related_skills', 'dependency_tree', 'skills_using_package', 'circular_deps', 'most_used_deps', 'orphaned_skills', 'complexity', 'imports', 'similar_skills', 'conflicts', 'execution_history', 'neighborhood'",
+    )
+    depth: int = Field(default=2, description="Traversal depth for relationship queries (1-5)")
+    package_name: Optional[str] = Field(
+        default=None, description="Package name for dependency queries"
+    )
+    limit: int = Field(default=20, description="Result limit for queries")
+
+    # Visualization operations
+    format: str = Field(
+        default="json", description="Output format for visualize: 'json', 'cytoscape', 'summary'"
+    )
+
+    # Search operations
+    search_query: Optional[str] = Field(
+        default=None, description="Search text for full-text search across skills"
+    )
+    node_type: Optional[str] = Field(
+        default="Skill", description="Node type to search: 'Skill', 'File', 'Dependency'"
+    )

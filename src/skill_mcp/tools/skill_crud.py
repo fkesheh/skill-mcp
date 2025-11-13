@@ -337,6 +337,19 @@ IMPORTANT NOTES:
 
         shutil.rmtree(skill_dir)
 
+        # Auto-sync to graph if enabled
+        from skill_mcp.core.config import GRAPH_AUTO_SYNC, GRAPH_ENABLED
+
+        if GRAPH_ENABLED and GRAPH_AUTO_SYNC:
+            try:
+                from skill_mcp.services.graph_service import GraphService
+
+                graph_service = GraphService()
+                await graph_service.delete_skill_from_graph(input_data.skill_name)
+            except Exception:
+                # Silently fail - don't break skill deletion
+                pass
+
         return [
             types.TextContent(
                 type="text", text=f"Successfully deleted skill '{input_data.skill_name}'"
@@ -459,6 +472,19 @@ console.log("Hello from {skill_name}!");
 """.format(skill_name=input_data.skill_name, description=description)
             package_json_path.write_text(package_json_content)
             files_created.append("package.json")
+
+        # Auto-sync to graph if enabled
+        from skill_mcp.core.config import GRAPH_AUTO_SYNC, GRAPH_ENABLED
+
+        if GRAPH_ENABLED and GRAPH_AUTO_SYNC:
+            try:
+                from skill_mcp.services.graph_service import GraphService
+
+                graph_service = GraphService()
+                await graph_service.sync_skill_to_graph(input_data.skill_name)
+            except Exception:
+                # Silently fail - don't break skill creation
+                pass
 
         return [
             types.TextContent(

@@ -6,6 +6,21 @@ from skill_mcp.models_crud import SkillFilesCrudInput
 from skill_mcp.services.file_service import FileService
 
 
+async def _sync_skill_to_graph_if_enabled(skill_name: str) -> None:
+    """Helper to sync skill to graph if auto-sync is enabled."""
+    from skill_mcp.core.config import GRAPH_AUTO_SYNC, GRAPH_ENABLED
+
+    if GRAPH_ENABLED and GRAPH_AUTO_SYNC:
+        try:
+            from skill_mcp.services.graph_service import GraphService
+
+            graph_service = GraphService()
+            await graph_service.sync_skill_to_graph(skill_name)
+        except Exception:
+            # Silently fail - don't break file operations
+            pass
+
+
 class SkillFilesCrud:
     """Unified tool for skill file CRUD operations."""
 
@@ -170,6 +185,9 @@ IMPORTANT PATH NOTES:
                     )
                     created_files.append(file_spec.path)
 
+                # Auto-sync to graph if enabled
+                await _sync_skill_to_graph_if_enabled(input_data.skill_name)
+
                 # Use namespaced paths in output
                 namespaced_files = [f"{input_data.skill_name}:{f}" for f in created_files]
                 return [
@@ -203,6 +221,9 @@ IMPORTANT PATH NOTES:
 
         FileService.create_file(input_data.skill_name, input_data.file_path, input_data.content)
 
+        # Auto-sync to graph if enabled
+        await _sync_skill_to_graph_if_enabled(input_data.skill_name)
+
         namespaced_path = f"{input_data.skill_name}:{input_data.file_path}"
         return [
             types.TextContent(
@@ -229,6 +250,9 @@ IMPORTANT PATH NOTES:
                 FileService.update_file(input_data.skill_name, file_spec.path, file_spec.content)
                 updated_count += 1
 
+            # Auto-sync to graph if enabled
+            await _sync_skill_to_graph_if_enabled(input_data.skill_name)
+
             return [
                 types.TextContent(type="text", text=f"Successfully updated {updated_count} files")
             ]
@@ -243,6 +267,9 @@ IMPORTANT PATH NOTES:
             ]
 
         FileService.update_file(input_data.skill_name, input_data.file_path, input_data.content)
+
+        # Auto-sync to graph if enabled
+        await _sync_skill_to_graph_if_enabled(input_data.skill_name)
 
         namespaced_path = f"{input_data.skill_name}:{input_data.file_path}"
         return [
@@ -263,6 +290,9 @@ IMPORTANT PATH NOTES:
             ]
 
         FileService.delete_file(input_data.skill_name, input_data.file_path)
+
+        # Auto-sync to graph if enabled
+        await _sync_skill_to_graph_if_enabled(input_data.skill_name)
 
         namespaced_path = f"{input_data.skill_name}:{input_data.file_path}"
         return [
