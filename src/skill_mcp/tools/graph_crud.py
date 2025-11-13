@@ -1,7 +1,7 @@
 """Graph CRUD tool for Neo4j knowledge graph operations."""
 
 import json
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 from mcp import types
 
@@ -10,6 +10,113 @@ from skill_mcp.core.exceptions import SkillMCPException
 from skill_mcp.models_crud import GraphCrudInput
 from skill_mcp.services.graph_queries import GraphQueries
 from skill_mcp.services.graph_service import GraphService, GraphServiceError
+
+# ===================
+# Constants
+# ===================
+
+MAX_ERRORS_TO_DISPLAY = 5
+MAX_FILES_TO_DISPLAY = 10
+MAX_DEPENDENCIES_TO_DISPLAY = 10
+
+# ===================
+# Query Registry
+# ===================
+
+
+def _query_related_skills(input_data: GraphCrudInput) -> Optional[Dict[str, Any]]:
+    """Get related skills query."""
+    if not input_data.skill_name:
+        return None
+    depth = min(input_data.depth, GRAPH_MAX_TRAVERSAL_DEPTH)
+    return GraphQueries.find_related_skills(input_data.skill_name, depth)
+
+
+def _query_dependency_tree(input_data: GraphCrudInput) -> Optional[Dict[str, Any]]:
+    """Get dependency tree query."""
+    if not input_data.skill_name:
+        return None
+    return GraphQueries.get_dependency_tree(input_data.skill_name)
+
+
+def _query_skills_using_package(input_data: GraphCrudInput) -> Optional[Dict[str, Any]]:
+    """Get skills using package query."""
+    if not input_data.package_name:
+        return None
+    return GraphQueries.find_skills_using_dependency(input_data.package_name)
+
+
+def _query_circular_deps(input_data: GraphCrudInput) -> Optional[Dict[str, Any]]:
+    """Get circular dependencies query."""
+    return GraphQueries.find_circular_dependencies()
+
+
+def _query_most_used_deps(input_data: GraphCrudInput) -> Optional[Dict[str, Any]]:
+    """Get most used dependencies query."""
+    return GraphQueries.get_most_used_dependencies(input_data.limit)
+
+
+def _query_orphaned_skills(input_data: GraphCrudInput) -> Optional[Dict[str, Any]]:
+    """Get orphaned skills query."""
+    return GraphQueries.find_orphaned_skills()
+
+
+def _query_complexity(input_data: GraphCrudInput) -> Optional[Dict[str, Any]]:
+    """Get skill complexity query."""
+    if not input_data.skill_name:
+        return None
+    return GraphQueries.get_skill_complexity_score(input_data.skill_name)
+
+
+def _query_imports(input_data: GraphCrudInput) -> Optional[Dict[str, Any]]:
+    """Get imports graph query."""
+    if not input_data.skill_name:
+        return None
+    return GraphQueries.get_import_graph(input_data.skill_name)
+
+
+def _query_similar_skills(input_data: GraphCrudInput) -> Optional[Dict[str, Any]]:
+    """Get similar skills query."""
+    if not input_data.skill_name:
+        return None
+    return GraphQueries.find_similar_skills(input_data.skill_name, input_data.limit)
+
+
+def _query_conflicts(input_data: GraphCrudInput) -> Optional[Dict[str, Any]]:
+    """Get dependency conflicts query."""
+    return GraphQueries.get_dependency_conflicts()
+
+
+def _query_execution_history(input_data: GraphCrudInput) -> Optional[Dict[str, Any]]:
+    """Get execution history query."""
+    if not input_data.skill_name:
+        return None
+    return GraphQueries.get_execution_history(input_data.skill_name, input_data.limit)
+
+
+def _query_neighborhood(input_data: GraphCrudInput) -> Optional[Dict[str, Any]]:
+    """Get skill neighborhood query."""
+    if not input_data.skill_name:
+        return None
+    depth = min(input_data.depth, 3)
+    return GraphQueries.get_skill_neighborhood(input_data.skill_name, depth)
+
+
+# Query registry mapping query type to handler function
+QUERY_REGISTRY: Dict[str, Callable[[GraphCrudInput], Optional[Dict[str, Any]]]] = {
+    "related_skills": _query_related_skills,
+    "dependency_tree": _query_dependency_tree,
+    "skills_using_package": _query_skills_using_package,
+    "circular_deps": _query_circular_deps,
+    "most_used_deps": _query_most_used_deps,
+    "orphaned_skills": _query_orphaned_skills,
+    "complexity": _query_complexity,
+    "imports": _query_imports,
+    "similar_skills": _query_similar_skills,
+    "conflicts": _query_conflicts,
+    "execution_history": _query_execution_history,
+    "neighborhood": _query_neighborhood,
+}
 
 
 class GraphCrud:
@@ -294,8 +401,10 @@ async def _handle_sync(input_data: GraphCrudInput) -> List[types.TextContent]:
 
         if stats["errors"]:
             output += f"\n**Errors ({len(stats['errors'])}):**\n"
-            for error in stats["errors"][:5]:  # Show first 5 errors
+            for error in stats["errors"][:MAX_ERRORS_TO_DISPLAY]:
                 output += f"- {error}\n"
+            if len(stats["errors"]) > MAX_ERRORS_TO_DISPLAY:
+                output += f"... and {len(stats['errors']) - MAX_ERRORS_TO_DISPLAY} more\n"
 
         return [types.TextContent(type="text", text=output)]
 
@@ -365,73 +474,21 @@ async def _handle_query(input_data: GraphCrudInput) -> List[types.TextContent]:
 
     query_type = input_data.query_type.lower()
 
-    # Get the appropriate query
-    query_data: Dict[str, Any] = {}
-
-    if query_type == "related_skills":
-        if not input_data.skill_name:
-            return [types.TextContent(type="text", text="❌ 'skill_name' is required.")]
-        depth = min(input_data.depth, GRAPH_MAX_TRAVERSAL_DEPTH)
-        query_data = GraphQueries.find_related_skills(input_data.skill_name, depth)
-
-    elif query_type == "dependency_tree":
-        if not input_data.skill_name:
-            return [types.TextContent(type="text", text="❌ 'skill_name' is required.")]
-        query_data = GraphQueries.get_dependency_tree(input_data.skill_name)
-
-    elif query_type == "skills_using_package":
-        if not input_data.package_name:
-            return [types.TextContent(type="text", text="❌ 'package_name' is required.")]
-        query_data = GraphQueries.find_skills_using_dependency(input_data.package_name)
-
-    elif query_type == "circular_deps":
-        query_data = GraphQueries.find_circular_dependencies()
-
-    elif query_type == "most_used_deps":
-        query_data = GraphQueries.get_most_used_dependencies(input_data.limit)
-
-    elif query_type == "orphaned_skills":
-        query_data = GraphQueries.find_orphaned_skills()
-
-    elif query_type == "complexity":
-        if not input_data.skill_name:
-            return [types.TextContent(type="text", text="❌ 'skill_name' is required.")]
-        query_data = GraphQueries.get_skill_complexity_score(input_data.skill_name)
-
-    elif query_type == "imports":
-        if not input_data.skill_name:
-            return [types.TextContent(type="text", text="❌ 'skill_name' is required.")]
-        query_data = GraphQueries.get_import_graph(input_data.skill_name)
-
-    elif query_type == "similar_skills":
-        if not input_data.skill_name:
-            return [types.TextContent(type="text", text="❌ 'skill_name' is required.")]
-        query_data = GraphQueries.find_similar_skills(input_data.skill_name, input_data.limit)
-
-    elif query_type == "conflicts":
-        query_data = GraphQueries.get_dependency_conflicts()
-
-    elif query_type == "execution_history":
-        if not input_data.skill_name:
-            return [types.TextContent(type="text", text="❌ 'skill_name' is required.")]
-        query_data = GraphQueries.get_execution_history(input_data.skill_name, input_data.limit)
-
-    elif query_type == "neighborhood":
-        if not input_data.skill_name:
-            return [types.TextContent(type="text", text="❌ 'skill_name' is required.")]
-        depth = min(input_data.depth, 3)
-        query_data = GraphQueries.get_skill_neighborhood(input_data.skill_name, depth)
-
-    else:
+    # Use query registry
+    query_handler = QUERY_REGISTRY.get(query_type)
+    if not query_handler:
+        valid_types = ", ".join(sorted(QUERY_REGISTRY.keys()))
         return [
             types.TextContent(
                 type="text",
-                text=f"❌ Unknown query type: {query_type}\n\n"
-                "Valid types: related_skills, dependency_tree, skills_using_package, "
-                "circular_deps, most_used_deps, orphaned_skills, complexity, imports, "
-                "similar_skills, conflicts, execution_history, neighborhood",
+                text=f"❌ Unknown query type: {query_type}\n\nValid types: {valid_types}",
             )
         ]
+
+    # Get query data from handler
+    query_data = query_handler(input_data)
+    if query_data is None:
+        return [types.TextContent(type="text", text="❌ Required parameters missing for this query.")]
 
     # Execute the query
     results = await service.execute_query(query_data["query"], query_data["params"])
@@ -486,18 +543,18 @@ async def _handle_analyze(input_data: GraphCrudInput) -> List[types.TextContent]
     files = result.get("files", [])
     if files:
         output += f"\n**Files in this skill ({len(files)}):**\n"
-        for f in files[:10]:  # Show first 10
+        for f in files[:MAX_FILES_TO_DISPLAY]:
             output += f"  - {f}\n"
-        if len(files) > 10:
-            output += f"  ... and {len(files) - 10} more\n"
+        if len(files) > MAX_FILES_TO_DISPLAY:
+            output += f"  ... and {len(files) - MAX_FILES_TO_DISPLAY} more\n"
 
     dependencies = result.get("dependencies", [])
     if dependencies:
         output += f"\n**Dependencies ({len(dependencies)}):**\n"
-        for dep in dependencies[:10]:
+        for dep in dependencies[:MAX_DEPENDENCIES_TO_DISPLAY]:
             output += f"  - {dep}\n"
-        if len(dependencies) > 10:
-            output += f"  ... and {len(dependencies) - 10} more\n"
+        if len(dependencies) > MAX_DEPENDENCIES_TO_DISPLAY:
+            output += f"  ... and {len(dependencies) - MAX_DEPENDENCIES_TO_DISPLAY} more\n"
 
     return [types.TextContent(type="text", text=output)]
 

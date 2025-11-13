@@ -19,6 +19,7 @@ from skill_mcp.models import FileInfo, ScriptInfo, SkillDetails
 from skill_mcp.services.script_service import extract_pep723_dependencies
 from skill_mcp.services.skill_service import SkillService
 from skill_mcp.utils.ast_analyzer import PythonImportAnalyzer
+from skill_mcp.utils.graph_utils import get_current_timestamps, require_connection
 from skill_mcp.utils.script_detector import get_file_type
 
 try:
@@ -94,9 +95,46 @@ class GraphService:
             return False
 
     # ===================
+    # Helper Methods
+    # ===================
+
+    def _execute_single_result_query(
+        self, query: str, params: Dict[str, Any], result_key: str
+    ) -> Dict[str, Any]:
+        """
+        Execute query expecting single result node.
+
+        Args:
+            query: Cypher query string
+            params: Query parameters
+            result_key: Key to extract from result record
+
+        Returns:
+            Dictionary with node properties or empty dict
+        """
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query, params)
+            record = result.single()
+            if record:
+                return dict(record[result_key])
+            return {}
+
+    def _execute_write_query(self, query: str, params: Dict[str, Any]) -> None:
+        """
+        Execute write query without expecting results.
+
+        Args:
+            query: Cypher query string
+            params: Query parameters
+        """
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            session.run(query, params)
+
+    # ===================
     # Node Operations
     # ===================
 
+    @require_connection
     async def create_skill_node(self, skill_details: SkillDetails) -> Dict[str, Any]:
         """
         Create or update a skill node in the graph.
@@ -107,9 +145,6 @@ class GraphService:
         Returns:
             Dictionary with node properties
         """
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         query = """
         MERGE (s:Skill {name: $name})
         SET s.description = $description,
@@ -121,23 +156,19 @@ class GraphService:
         RETURN s
         """
 
+        timestamps = get_current_timestamps()
         params = {
             "name": skill_details.name,
             "description": skill_details.description,
             "has_env_file": skill_details.has_env_file,
             "file_count": len(skill_details.files),
             "script_count": len(skill_details.scripts),
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
+            **timestamps,
         }
 
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            result = session.run(query, params)
-            record = result.single()
-            if record:
-                return dict(record["s"])
-            return {}
+        return self._execute_single_result_query(query, params, "s")
 
+    @require_connection
     async def create_file_node(
         self, skill_name: str, file_info: FileInfo
     ) -> Dict[str, Any]:
@@ -151,21 +182,8 @@ class GraphService:
         Returns:
             Dictionary with node properties
         """
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         # Determine labels based on file type
-        labels = ["File"]
-        if file_info.type == "python":
-            labels.append("Python")
-        elif file_info.type == "shell":
-            labels.append("Shell")
-        elif file_info.type == "markdown":
-            labels.append("Markdown")
-
-        if file_info.is_executable:
-            labels.append("Script")
-
+        labels = self._get_file_labels(file_info)
         label_str = ":".join(labels)
 
         query = f"""
@@ -190,13 +208,33 @@ class GraphService:
             ),
         }
 
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            result = session.run(query, params)
-            record = result.single()
-            if record:
-                return dict(record["f"])
-            return {}
+        return self._execute_single_result_query(query, params, "f")
 
+    def _get_file_labels(self, file_info: FileInfo) -> List[str]:
+        """
+        Determine Neo4j labels for a file based on its type.
+
+        Args:
+            file_info: FileInfo object
+
+        Returns:
+            List of labels to apply to the file node
+        """
+        labels = ["File"]
+
+        if file_info.type == "python":
+            labels.append("Python")
+        elif file_info.type == "shell":
+            labels.append("Shell")
+        elif file_info.type == "markdown":
+            labels.append("Markdown")
+
+        if file_info.is_executable:
+            labels.append("Script")
+
+        return labels
+
+    @require_connection
     async def create_dependency_node(
         self, package: str, version: str, ecosystem: str = "python"
     ) -> Dict[str, Any]:
@@ -211,9 +249,6 @@ class GraphService:
         Returns:
             Dictionary with node properties
         """
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         query = """
         MERGE (d:Dependency {package_name: $package, ecosystem: $ecosystem})
         SET d.version_spec = $version,
@@ -222,21 +257,17 @@ class GraphService:
         RETURN d
         """
 
+        timestamps = get_current_timestamps()
         params = {
             "package": package,
             "version": version,
             "ecosystem": ecosystem,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
+            **timestamps,
         }
 
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            result = session.run(query, params)
-            record = result.single()
-            if record:
-                return dict(record["d"])
-            return {}
+        return self._execute_single_result_query(query, params, "d")
 
+    @require_connection
     async def create_env_var_node(self, skill_name: str, key: str) -> Dict[str, Any]:
         """
         Create environment variable node (key only, no value for security).
@@ -248,9 +279,6 @@ class GraphService:
         Returns:
             Dictionary with node properties
         """
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         query = """
         MERGE (e:EnvVar {key: $key, skill_name: $skill_name})
         SET e.updated_at = datetime($updated_at)
@@ -258,20 +286,16 @@ class GraphService:
         RETURN e
         """
 
+        timestamps = get_current_timestamps()
         params = {
             "key": key,
             "skill_name": skill_name,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
+            **timestamps,
         }
 
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            result = session.run(query, params)
-            record = result.single()
-            if record:
-                return dict(record["e"])
-            return {}
+        return self._execute_single_result_query(query, params, "e")
 
+    @require_connection
     async def create_knowledge_node(
         self,
         knowledge_id: str,
@@ -295,9 +319,6 @@ class GraphService:
         Returns:
             Dictionary with node properties
         """
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         query = """
         MERGE (k:Knowledge {id: $knowledge_id})
         SET k.title = $title,
@@ -310,6 +331,7 @@ class GraphService:
         RETURN k
         """
 
+        timestamps = get_current_timestamps()
         params = {
             "knowledge_id": knowledge_id,
             "title": title,
@@ -317,138 +339,105 @@ class GraphService:
             "category": category,
             "tags": tags or [],
             "author": author,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
+            **timestamps,
         }
 
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            result = session.run(query, params)
-            record = result.single()
-            if record:
-                return dict(record["k"])
-            return {}
+        return self._execute_single_result_query(query, params, "k")
 
+    @require_connection
     async def delete_knowledge_node(self, knowledge_id: str) -> None:
         """Delete a knowledge node and its relationships."""
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         query = """
         MATCH (k:Knowledge {id: $knowledge_id})
         DETACH DELETE k
         """
 
         params = {"knowledge_id": knowledge_id}
-
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            session.run(query, params)
+        self._execute_write_query(query, params)
 
     # ===================
     # Relationship Operations
     # ===================
 
+    @require_connection
     async def link_skill_to_file(self, skill_name: str, file_path: str) -> None:
         """Create [:HAS_FILE] relationship between skill and file."""
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         query = """
         MATCH (s:Skill {name: $skill_name})
         MATCH (f:File {path: $file_path, skill_name: $skill_name})
         MERGE (s)-[:HAS_FILE]->(f)
         """
-
         params = {"skill_name": skill_name, "file_path": file_path}
+        self._execute_write_query(query, params)
 
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            session.run(query, params)
-
+    @require_connection
     async def link_file_to_dependency(
         self, skill_name: str, file_path: str, package: str, ecosystem: str = "python"
     ) -> None:
         """Create [:DEPENDS_ON] relationship between file and dependency."""
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         query = """
         MATCH (f:File {path: $file_path, skill_name: $skill_name})
         MATCH (d:Dependency {package_name: $package, ecosystem: $ecosystem})
         MERGE (f)-[:DEPENDS_ON]->(d)
         """
-
         params = {
             "skill_name": skill_name,
             "file_path": file_path,
             "package": package,
             "ecosystem": ecosystem,
         }
+        self._execute_write_query(query, params)
 
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            session.run(query, params)
-
+    @require_connection
     async def link_file_imports(
         self, skill_name: str, from_file: str, to_module: str, import_type: str = "local"
     ) -> None:
         """Create [:IMPORTS] relationship between files."""
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         query = """
         MATCH (f1:File {path: $from_file, skill_name: $skill_name})
         MERGE (m:Module {name: $to_module, type: $import_type})
         MERGE (f1)-[:IMPORTS {type: $import_type}]->(m)
         """
-
         params = {
             "skill_name": skill_name,
             "from_file": from_file,
             "to_module": to_module,
             "import_type": import_type,
         }
+        self._execute_write_query(query, params)
 
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            session.run(query, params)
-
+    @require_connection
     async def link_cross_skill_reference(
         self, from_skill: str, to_skill: str, via_file: str
     ) -> None:
         """Create [:REFERENCES] relationship for cross-skill imports."""
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         query = """
         MATCH (s1:Skill {name: $from_skill})
         MATCH (s2:Skill {name: $to_skill})
         MERGE (s1)-[r:REFERENCES {via_file: $via_file}]->(s2)
         SET r.updated_at = datetime($updated_at)
         """
-
+        timestamps = get_current_timestamps()
         params = {
             "from_skill": from_skill,
             "to_skill": to_skill,
             "via_file": via_file,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": timestamps["updated_at"],
         }
+        self._execute_write_query(query, params)
 
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            session.run(query, params)
-
+    @require_connection
     async def link_skill_to_env_var(self, skill_name: str, key: str) -> None:
         """Create [:HAS_ENV_VAR] relationship."""
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         query = """
         MATCH (s:Skill {name: $skill_name})
         MATCH (e:EnvVar {key: $key, skill_name: $skill_name})
         MERGE (s)-[:HAS_ENV_VAR]->(e)
         """
-
         params = {"skill_name": skill_name, "key": key}
+        self._execute_write_query(query, params)
 
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            session.run(query, params)
-
+    @require_connection
     async def link_knowledge_to_skill(
         self, knowledge_id: str, skill_name: str, relationship_type: str = "EXPLAINS"
     ) -> None:
@@ -460,42 +449,40 @@ class GraphService:
             skill_name: Name of the skill
             relationship_type: Type of relationship (EXPLAINS, REFERENCES, USES)
         """
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
+        # Validate relationship type
+        valid_types = {"EXPLAINS", "REFERENCES", "USES"}
+        if relationship_type not in valid_types:
+            raise GraphServiceError(
+                f"Invalid relationship type: {relationship_type}. "
+                f"Must be one of: {', '.join(valid_types)}"
+            )
 
         query = f"""
         MATCH (k:Knowledge {{id: $knowledge_id}})
         MATCH (s:Skill {{name: $skill_name}})
         MERGE (k)-[:{relationship_type}]->(s)
         """
-
         params = {"knowledge_id": knowledge_id, "skill_name": skill_name}
+        self._execute_write_query(query, params)
 
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            session.run(query, params)
-
+    @require_connection
     async def link_knowledge_to_knowledge(
         self, from_knowledge_id: str, to_knowledge_id: str
     ) -> None:
         """Create [:RELATED_TO] relationship between knowledge documents."""
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         query = """
         MATCH (k1:Knowledge {id: $from_id})
         MATCH (k2:Knowledge {id: $to_id})
         MERGE (k1)-[:RELATED_TO]->(k2)
         """
-
         params = {"from_id": from_knowledge_id, "to_id": to_knowledge_id}
-
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            session.run(query, params)
+        self._execute_write_query(query, params)
 
     # ===================
     # Sync Operations
     # ===================
 
+    @require_connection
     async def sync_skill_to_graph(self, skill_name: str) -> Dict[str, Any]:
         """
         Sync entire skill structure to graph.
@@ -506,8 +493,6 @@ class GraphService:
         Returns:
             Dictionary with sync statistics
         """
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
 
         try:
             # Get skill details
@@ -577,6 +562,7 @@ class GraphService:
         except Exception:
             pass
 
+    @require_connection
     async def sync_all_skills_to_graph(self) -> Dict[str, Any]:
         """
         Sync all skills to the graph database.
@@ -584,8 +570,6 @@ class GraphService:
         Returns:
             Dictionary with overall sync statistics
         """
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
 
         skills = SkillService.list_skills()
         overall_stats = {
@@ -609,27 +593,23 @@ class GraphService:
 
         return overall_stats
 
+    @require_connection
     async def delete_skill_from_graph(self, skill_name: str) -> None:
         """Delete a skill and its relationships from the graph."""
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         query = """
         MATCH (s:Skill {name: $skill_name})
         OPTIONAL MATCH (s)-[:HAS_FILE]->(f:File)
         OPTIONAL MATCH (s)-[:HAS_ENV_VAR]->(e:EnvVar)
         DETACH DELETE s, f, e
         """
-
         params = {"skill_name": skill_name}
-
-        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-            session.run(query, params)
+        self._execute_write_query(query, params)
 
     # ===================
     # Query Operations
     # ===================
 
+    @require_connection
     async def execute_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         Execute a raw Cypher query.
@@ -641,9 +621,6 @@ class GraphService:
         Returns:
             List of result records as dictionaries
         """
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
-
         params = params or {}
 
         try:
@@ -653,10 +630,9 @@ class GraphService:
         except Exception as e:
             raise GraphServiceError(f"Query execution failed: {str(e)}")
 
+    @require_connection
     async def get_graph_stats(self) -> Dict[str, Any]:
         """Get statistics about the graph."""
-        if not self.is_connected():
-            raise GraphServiceError("Not connected to Neo4j")
 
         query = """
         MATCH (n)
