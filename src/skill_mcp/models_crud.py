@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from skill_mcp.models import NodeType, RelationshipType
 
@@ -176,25 +176,85 @@ class NodeCrudInput(BaseModel):
     )
 
     # For create/read/update/delete
-    node_id: Optional[str] = Field(default=None, description="Unique node identifier")
+    node_id: Optional[str] = Field(
+        default=None,
+        description="Unique node identifier (required for: read, update, delete; optional for: create - auto-generated if not provided)",
+    )
     node_type: Optional[NodeType] = Field(
-        default=None, description="Type of node (Skill, Knowledge, Script, Tool)"
+        default=None,
+        description="Type of node: Skill, Knowledge, Script, Tool, EnvFile (required for: create; optional for: list as filter)",
     )
 
     # For create/update
-    name: Optional[str] = Field(default=None, description="Node display name")
-    description: Optional[str] = Field(default=None, description="Human-readable description")
-    tags: Optional[List[str]] = Field(default=None, description="Categorization tags")
+    name: Optional[str] = Field(
+        default=None,
+        description="Node display name (required for: create; optional for: update)",
+    )
+    description: Optional[str] = Field(
+        default=None, description="Human-readable description (optional for: create, update)"
+    )
+    tags: Optional[List[str]] = Field(
+        default=None,
+        description="Categorization tags as array of strings (optional for: create, update). Example: ['web', 'scraping', 'api']",
+    )
     properties: Optional[Dict[str, Any]] = Field(
-        default=None, description="Type-specific properties"
+        default=None,
+        description="""Type-specific properties as key-value object (optional for: create, update).
+
+        Examples by node type:
+        - Skill: {"skill_path": "/path", "has_env_file": true}
+        - Script: {"language": "python", "file_path": "/path/script.py", "is_executable": true}
+        - Knowledge: {"file_path": "/path/doc.md", "category": "tutorial"}
+        - Tool: {"tool_name": "my_tool", "version": "1.0"}
+        - EnvFile: {"file_path": "/path/.env"} [required for EnvFile nodes]
+        """,
     )
 
     # For list
     filters: Optional[Dict[str, Any]] = Field(
-        default=None, description="Filter criteria for list operation"
+        default=None, description="Filter criteria for list operation (optional)"
     )
-    limit: int = Field(default=50, description="Maximum number of results")
-    offset: int = Field(default=0, description="Offset for pagination")
+    limit: int = Field(default=50, description="Maximum number of results (for list operation)")
+    offset: int = Field(default=0, description="Offset for pagination (for list operation)")
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        """Validate tags are non-empty strings."""
+        if v is None:
+            return v
+
+        if not isinstance(v, list):
+            raise ValueError(
+                f"tags must be an array of strings, got {type(v).__name__}. Example: ['web', 'api']"
+            )
+
+        for i, tag in enumerate(v):
+            if not isinstance(tag, str):
+                raise ValueError(
+                    f"tags[{i}] must be a string, got {type(tag).__name__}. Example: ['web', 'api']"
+                )
+            if not tag.strip():
+                raise ValueError(
+                    f"tags[{i}] cannot be empty or whitespace. Example: ['web', 'api']"
+                )
+
+        return v
+
+    @field_validator("properties")
+    @classmethod
+    def validate_properties(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Validate properties is a dict."""
+        if v is None:
+            return v
+
+        if not isinstance(v, dict):
+            raise ValueError(
+                f"properties must be an object (key-value pairs), got {type(v).__name__}. "
+                'Example: {{"file_path": "/path/to/file", "language": "python"}}'
+            )
+
+        return v
 
 
 class RelationshipCrudInput(BaseModel):
@@ -205,26 +265,40 @@ class RelationshipCrudInput(BaseModel):
     )
 
     # For create/delete
-    from_id: Optional[str] = Field(default=None, description="Source node ID")
-    to_id: Optional[str] = Field(default=None, description="Target node ID")
+    from_id: Optional[str] = Field(
+        default=None,
+        description="Source node ID (required for: create, delete)",
+    )
+    to_id: Optional[str] = Field(
+        default=None,
+        description="Target node ID (required for: create, delete)",
+    )
     relationship_type: Optional[RelationshipType] = Field(
-        default=None, description="Type of relationship"
+        default=None,
+        description="Type of relationship: CONTAINS, DEPENDS_ON, USES, REFERENCES, RELATED_TO, EXPLAINS, IMPORTS, USES_ENV (required for: create, delete; optional for: get as filter)",
     )
 
     # For create
     properties: Optional[Dict[str, Any]] = Field(
-        default=None, description="Relationship-specific properties"
+        default=None,
+        description='Relationship-specific properties as key-value object (optional for: create). Example: {"reason": "imports helper functions"}',
     )
 
     # For get
-    node_id: Optional[str] = Field(default=None, description="Node ID to get relationships for")
+    node_id: Optional[str] = Field(
+        default=None,
+        description="Node ID to get relationships for (required for: get)",
+    )
     direction: Optional[Literal["incoming", "outgoing", "both"]] = Field(
-        default="both", description="Direction of relationships to retrieve"
+        default="both",
+        description="Direction of relationships to retrieve (optional for: get). Default: both",
     )
 
     # For list
-    filters: Optional[Dict[str, Any]] = Field(default=None, description="Filter criteria")
-    limit: int = Field(default=50, description="Maximum number of results")
+    filters: Optional[Dict[str, Any]] = Field(
+        default=None, description="Filter criteria (optional for: list)"
+    )
+    limit: int = Field(default=50, description="Maximum number of results (for list operation)")
 
 
 class QueryGraphInput(BaseModel):

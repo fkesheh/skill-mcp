@@ -16,11 +16,22 @@ async def _handle_create(input_data: NodeCrudInput) -> List[types.TextContent]:
     """Handle node creation."""
     if not input_data.node_type:
         return [
-            types.TextContent(type="text", text="❌ node_type is required for create operation")
+            types.TextContent(
+                type="text",
+                text="❌ node_type is required for create operation.\n\n"
+                "Valid types: Skill, Knowledge, Script, Tool, EnvFile (case-sensitive)\n"
+                'Example: {"operation": "create", "node_type": "Script", "name": "my-script"}',
+            )
         ]
 
     if not input_data.name:
-        return [types.TextContent(type="text", text="❌ name is required for create operation")]
+        return [
+            types.TextContent(
+                type="text",
+                text="❌ name is required for create operation.\n\n"
+                'Example: {"operation": "create", "node_type": "Script", "name": "my-script"}',
+            )
+        ]
 
     # Generate ID if not provided
     node_id = input_data.node_id or f"{input_data.node_type.value.lower()}-{uuid4().hex[:12]}"
@@ -60,7 +71,13 @@ async def _handle_create(input_data: NodeCrudInput) -> List[types.TextContent]:
 async def _handle_read(input_data: NodeCrudInput) -> List[types.TextContent]:
     """Handle node read."""
     if not input_data.node_id:
-        return [types.TextContent(type="text", text="❌ node_id is required for read operation")]
+        return [
+            types.TextContent(
+                type="text",
+                text="❌ node_id is required for read operation.\n\n"
+                'Example: {"operation": "read", "node_id": "script-abc123"}',
+            )
+        ]
 
     service = GraphService()
     try:
@@ -97,7 +114,13 @@ async def _handle_read(input_data: NodeCrudInput) -> List[types.TextContent]:
 async def _handle_update(input_data: NodeCrudInput) -> List[types.TextContent]:
     """Handle node update."""
     if not input_data.node_id:
-        return [types.TextContent(type="text", text="❌ node_id is required for update operation")]
+        return [
+            types.TextContent(
+                type="text",
+                text="❌ node_id is required for update operation.\n\n"
+                'Example: {"operation": "update", "node_id": "script-abc123", "properties": {"description": "Updated"}}',
+            )
+        ]
 
     # Build properties to update
     update_props = input_data.properties or {}
@@ -109,7 +132,14 @@ async def _handle_update(input_data: NodeCrudInput) -> List[types.TextContent]:
         update_props["tags"] = input_data.tags
 
     if not update_props:
-        return [types.TextContent(type="text", text="❌ No properties provided to update")]
+        return [
+            types.TextContent(
+                type="text",
+                text="❌ No properties provided to update.\n\n"
+                "Provide at least one of: name, description, tags, or properties.\n"
+                'Example: {"operation": "update", "node_id": "script-abc123", "name": "new-name"}',
+            )
+        ]
 
     service = GraphService()
     try:
@@ -130,7 +160,13 @@ async def _handle_update(input_data: NodeCrudInput) -> List[types.TextContent]:
 async def _handle_delete(input_data: NodeCrudInput) -> List[types.TextContent]:
     """Handle node deletion."""
     if not input_data.node_id:
-        return [types.TextContent(type="text", text="❌ node_id is required for delete operation")]
+        return [
+            types.TextContent(
+                type="text",
+                text="❌ node_id is required for delete operation.\n\n"
+                'Example: {"operation": "delete", "node_id": "script-abc123"}',
+            )
+        ]
 
     service = GraphService()
     try:
@@ -247,10 +283,13 @@ See tool docstring for detailed examples.""",
         operation = input_data.operation.lower()
 
         if operation not in self.operation_map:
+            valid_ops = ", ".join(self.operation_map.keys())
             return [
                 types.TextContent(
                     type="text",
-                    text=f"❌ Unknown operation: {operation}. Valid operations: {', '.join(self.operation_map.keys())}",
+                    text=f"❌ Unknown operation: {operation}\n\n"
+                    f"Valid operations: {valid_ops}\n\n"
+                    'Example: {"operation": "create", "node_type": "Script", "name": "my-script"}',
                 )
             ]
 
