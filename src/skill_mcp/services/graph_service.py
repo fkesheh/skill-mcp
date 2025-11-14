@@ -102,8 +102,11 @@ class GraphService:
         """
         timestamps = get_current_timestamps()
 
+        # Handle both enum and string types
+        node_type = node.type.value if hasattr(node.type, 'value') else node.type
+
         query = f"""
-        CREATE (n:{node.type.value} {{
+        CREATE (n:{node_type} {{
             id: $id,
             name: $name,
             description: $description,
@@ -276,9 +279,12 @@ class GraphService:
         """
         timestamps = get_current_timestamps()
 
+        # Handle both enum and string types
+        rel_type = relationship.type.value if hasattr(relationship.type, 'value') else relationship.type
+
         query = f"""
         MATCH (from {{id: $from_id}}), (to {{id: $to_id}})
-        CREATE (from)-[r:{relationship.type.value}]->(to)
+        CREATE (from)-[r:{rel_type}]->(to)
         SET r += $properties,
             r.created_at = datetime($created_at)
         RETURN r
