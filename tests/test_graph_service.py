@@ -1,11 +1,11 @@
 """Tests for graph service with mocked Neo4j."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
-from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime
 
 from skill_mcp.services.graph_service import GraphService, GraphServiceError
-from skill_mcp.models import SkillDetails, FileInfo, ScriptInfo
+from skill_mcp.models import Node, NodeType, Relationship, RelationshipType
 
 
 @pytest.fixture
@@ -21,6 +21,7 @@ def mock_neo4j_driver():
 
     # Setup result
     result.single = MagicMock(return_value=None)
+    result.data = MagicMock(return_value=[])
     session.run = MagicMock(return_value=result)
 
     driver.session = MagicMock(return_value=session)
@@ -108,7 +109,10 @@ class TestGraphServiceInitialization:
         with patch("skill_mcp.services.graph_service.GRAPH_ENABLED", True):
             with patch("skill_mcp.services.graph_service.GraphDatabase") as mock_gdb:
                 from skill_mcp.services.graph_service import ServiceUnavailable
-                mock_gdb.driver = MagicMock(side_effect=ServiceUnavailable("Connection refused"))
+
+                mock_gdb.driver = MagicMock(
+                    side_effect=ServiceUnavailable("Connection refused")
+                )
 
                 with pytest.raises(GraphServiceError) as exc_info:
                     GraphService()
@@ -157,176 +161,252 @@ class TestGraphServiceInitialization:
         assert service.is_connected() is False
 
 
-class TestGraphServiceHelperMethods:
-    """Test helper methods - simplified tests."""
-
-    def test_helper_methods_exist(self, graph_service):
-        """Test that helper methods exist."""
-        service, driver, session, result = graph_service
-
-        assert hasattr(service, '_execute_single_result_query')
-        assert hasattr(service, '_execute_write_query')
-        assert callable(service._execute_single_result_query)
-        assert callable(service._execute_write_query)
-
-
-class TestGraphServiceNodeOperations:
-    """Test node creation operations - simplified."""
+class TestGenericNodeOperations:
+    """Test generic node CRUD operations."""
 
     @pytest.mark.asyncio
-    async def test_node_creation_methods_exist(self, graph_service):
-        """Test that node creation methods exist."""
-        service, driver, session, result = graph_service
-
-        # Verify methods exist
-        assert hasattr(service, 'create_skill_node')
-        assert hasattr(service, 'create_file_node')
-        assert hasattr(service, 'create_dependency_node')
-        assert hasattr(service, 'create_env_var_node')
-        assert hasattr(service, 'create_knowledge_node')
-
-    @pytest.mark.asyncio
-    async def test_create_dependency_node(self, graph_service):
-        """Test dependency node creation."""
+    async def test_create_node_skill(self, graph_service):
+        """Test creating a Skill node."""
         service, driver, session, result = graph_service
 
         # Mock the result
         mock_record = MagicMock()
-        mock_record.__getitem__ = MagicMock(return_value={
-            "package_name": "requests",
-            "ecosystem": "pypi",
-            "version_spec": ">=2.28.0"
-        })
+        mock_record.__getitem__ = MagicMock(
+            return_value={"id": "skill-abc123", "name": "test-skill", "type": "Skill"}
+        )
         result.single = MagicMock(return_value=mock_record)
 
-        node = await service.create_dependency_node("requests", "pypi", ">=2.28.0")
-
-        assert node["package_name"] == "requests"
-        assert node["ecosystem"] == "pypi"
-        session.run.assert_called()
-
-    @pytest.mark.asyncio
-    async def test_create_env_var_node(self, graph_service):
-        """Test environment variable node creation."""
-        service, driver, session, result = graph_service
-
-        # Mock the result
-        mock_record = MagicMock()
-        mock_record.__getitem__ = MagicMock(return_value={
-            "key": "API_KEY",
-            "skill_name": "test-skill"
-        })
-        result.single = MagicMock(return_value=mock_record)
-
-        node = await service.create_env_var_node("test-skill", "API_KEY")
-
-        assert node["key"] == "API_KEY"
-        session.run.assert_called()
-
-    @pytest.mark.asyncio
-    async def test_create_knowledge_node(self, graph_service):
-        """Test knowledge node creation."""
-        service, driver, session, result = graph_service
-
-        # Mock the result
-        mock_record = MagicMock()
-        mock_record.__getitem__ = MagicMock(return_value={
-            "id": "test-knowledge",
-            "title": "Test Knowledge",
-            "category": "tutorial"
-        })
-        result.single = MagicMock(return_value=mock_record)
-
-        node = await service.create_knowledge_node(
-            knowledge_id="test-knowledge",
-            title="Test Knowledge",
-            content="Test content",
-            category="tutorial",
-            tags=["python"],
-            author="Test Author"
+        node = Node(
+            id="skill-abc123",
+            type=NodeType.SKILL,
+            name="test-skill",
+            properties={"skill_path": "/path/to/skill"},
         )
 
-        assert node["id"] == "test-knowledge"
-        assert node["title"] == "Test Knowledge"
+        created = await service.create_node(node)
+
+        assert created["id"] == "skill-abc123"
         session.run.assert_called()
 
     @pytest.mark.asyncio
-    async def test_delete_knowledge_node(self, graph_service):
-        """Test knowledge node deletion."""
+    async def test_get_node(self, graph_service):
+        """Test getting a node by ID."""
         service, driver, session, result = graph_service
 
-        await service.delete_knowledge_node("test-knowledge")
+        # Mock the result
+        mock_record = MagicMock()
+        mock_record.__getitem__ = MagicMock(
+            return_value={"id": "skill-123", "name": "test-skill", "type": "Skill"}
+        )
+        result.single = MagicMock(return_value=mock_record)
 
-        session.run.assert_called()
+        node = await service.get_node("skill-123")
 
-
-class TestGraphServiceLinkOperations:
-    """Test relationship creation operations."""
-
-    @pytest.mark.asyncio
-    async def test_link_skill_to_file(self, graph_service):
-        """Test linking skill to file."""
-        service, driver, session, result = graph_service
-
-        await service.link_skill_to_file("test-skill", "test.py")
-
+        assert node is not None
         session.run.assert_called()
 
     @pytest.mark.asyncio
-    async def test_link_file_to_dependency(self, graph_service):
-        """Test linking file to dependency."""
+    async def test_update_node(self, graph_service):
+        """Test updating a node."""
         service, driver, session, result = graph_service
 
-        await service.link_file_to_dependency("test-skill", "test.py", "requests", "pypi")
+        # Mock the result
+        mock_record = MagicMock()
+        mock_record.__getitem__ = MagicMock(
+            return_value={"id": "skill-123", "name": "updated-skill"}
+        )
+        result.single = MagicMock(return_value=mock_record)
 
+        updated = await service.update_node("skill-123", {"name": "updated-skill"})
+
+        assert updated is not None
         session.run.assert_called()
 
     @pytest.mark.asyncio
-    async def test_link_skill_to_env_var(self, graph_service):
-        """Test linking skill to environment variable."""
+    async def test_delete_node(self, graph_service):
+        """Test deleting a node."""
         service, driver, session, result = graph_service
 
-        await service.link_skill_to_env_var("test-skill", "API_KEY")
-
-        session.run.assert_called()
-
-    @pytest.mark.asyncio
-    async def test_link_knowledge_to_skill(self, graph_service):
-        """Test linking knowledge to skill."""
-        service, driver, session, result = graph_service
-
-        await service.link_knowledge_to_skill("test-knowledge", "test-skill", "EXPLAINS")
+        await service.delete_node("skill-123")
 
         session.run.assert_called()
 
     @pytest.mark.asyncio
-    async def test_link_knowledge_to_knowledge(self, graph_service):
-        """Test linking knowledge to knowledge."""
+    async def test_list_nodes(self, graph_service):
+        """Test listing nodes."""
         service, driver, session, result = graph_service
 
-        await service.link_knowledge_to_knowledge("knowledge1", "knowledge2")
+        # Mock the result
+        result.data = MagicMock(
+            return_value=[
+                {"id": "skill-1", "name": "skill1", "type": "Skill"},
+                {"id": "skill-2", "name": "skill2", "type": "Skill"},
+            ]
+        )
+
+        nodes = await service.list_nodes(node_type=NodeType.SKILL)
+
+        assert len(nodes) == 2
+        session.run.assert_called()
+
+
+class TestGenericRelationshipOperations:
+    """Test generic relationship CRUD operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_relationship(self, graph_service):
+        """Test creating a relationship."""
+        service, driver, session, result = graph_service
+
+        # Mock the result
+        mock_record = MagicMock()
+        mock_record.__getitem__ = MagicMock(return_value={"type": "CONTAINS"})
+        result.single = MagicMock(return_value=mock_record)
+
+        rel = Relationship(
+            from_id="skill-1", to_id="script-1", type=RelationshipType.CONTAINS
+        )
+
+        created = await service.create_relationship(rel)
+
+        assert created is not None
+        session.run.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_get_relationships(self, graph_service):
+        """Test getting relationships for a node."""
+        service, driver, session, result = graph_service
+
+        # Mock the result
+        result.data = MagicMock(
+            return_value=[
+                {
+                    "type": "CONTAINS",
+                    "other_node": {
+                        "id": "script-1",
+                        "name": "test.py",
+                        "type": "Script",
+                    },
+                }
+            ]
+        )
+
+        rels = await service.get_relationships("skill-1")
+
+        assert len(rels) == 1
+        session.run.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_relationship(self, graph_service):
+        """Test deleting a relationship."""
+        service, driver, session, result = graph_service
+
+        await service.delete_relationship(
+            "skill-1", "script-1", RelationshipType.CONTAINS
+        )
 
         session.run.assert_called()
 
 
-class TestGraphServiceMainOperations:
-    """Test main graph operations - simplified."""
+class TestQueryOperations:
+    """Test query and traversal operations."""
 
     @pytest.mark.asyncio
-    async def test_delete_skill_from_graph(self, graph_service):
-        """Test deleting skill from graph."""
+    async def test_query_cypher(self, graph_service):
+        """Test executing raw Cypher query."""
         service, driver, session, result = graph_service
 
-        await service.delete_skill_from_graph("test-skill")
+        # Mock the result
+        result.data = MagicMock(
+            return_value=[
+                {"name": "skill1"},
+                {"name": "skill2"},
+            ]
+        )
 
+        results = await service.query_cypher("MATCH (n:Skill) RETURN n.name")
+
+        assert len(results) == 2
         session.run.assert_called()
 
     @pytest.mark.asyncio
-    async def test_execute_query_methods_exist(self, graph_service):
-        """Test that query execution methods exist."""
+    async def test_traverse_graph(self, graph_service):
+        """Test graph traversal."""
         service, driver, session, result = graph_service
 
-        assert hasattr(service, 'execute_query')
-        assert hasattr(service, 'get_graph_stats')
-        assert callable(service.execute_query)
-        assert callable(service.get_graph_stats)
+        # Mock the result
+        result.data = MagicMock(
+            return_value=[
+                {
+                    "nodes": [
+                        {"id": "skill-1", "name": "skill1", "type": "Skill"},
+                        {"id": "script-1", "name": "test.py", "type": "Script"},
+                    ],
+                    "relationships": [{"type": "CONTAINS"}],
+                }
+            ]
+        )
+
+        traversal = await service.traverse_graph("skill-1", max_depth=2)
+
+        assert "nodes" in traversal or traversal is not None
+        session.run.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_find_path(self, graph_service):
+        """Test pathfinding."""
+        service, driver, session, result = graph_service
+
+        # Mock the result
+        result.data = MagicMock(return_value=[])
+
+        paths = await service.find_path("skill-1", "script-1")
+
+        assert isinstance(paths, list)
+        session.run.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_get_graph_stats(self, graph_service):
+        """Test getting graph statistics."""
+        service, driver, session, result = graph_service
+
+        # Mock the result with multiple queries
+        result.data = MagicMock(
+            side_effect=[
+                [{"count": 10}],  # total nodes
+                [{"count": 15}],  # total relationships
+                [
+                    {"type": "Skill", "count": 5},
+                    {"type": "Script", "count": 5},
+                ],  # node counts
+                [{"type": "CONTAINS", "count": 10}],  # relationship counts
+            ]
+        )
+
+        stats = await service.get_graph_stats()
+
+        assert "total_nodes" in stats
+        assert "total_relationships" in stats
+        session.run.assert_called()
+
+
+class TestHelperMethods:
+    """Test helper methods."""
+
+    def test_helper_methods_exist(self, graph_service):
+        """Test that new generic methods exist."""
+        service, driver, session, result = graph_service
+
+        # Test new generic methods exist
+        assert hasattr(service, "create_node")
+        assert hasattr(service, "get_node")
+        assert hasattr(service, "update_node")
+        assert hasattr(service, "delete_node")
+        assert hasattr(service, "list_nodes")
+        assert hasattr(service, "create_relationship")
+        assert hasattr(service, "get_relationships")
+        assert hasattr(service, "delete_relationship")
+        assert hasattr(service, "query_cypher")
+        assert hasattr(service, "traverse_graph")
+        assert hasattr(service, "find_path")
+        assert hasattr(service, "get_graph_stats")
