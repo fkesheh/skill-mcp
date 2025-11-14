@@ -1,8 +1,10 @@
 """Unified CRUD input models for skill-mcp MCP tools."""
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
+
+from skill_mcp.models import NodeType, RelationshipType
 
 
 class FileSpec(BaseModel):
@@ -160,3 +162,97 @@ class GraphCrudInput(BaseModel):
         default=None, description="Category filter for knowledge queries"
     )
     tag_filter: Optional[str] = Field(default=None, description="Tag filter for knowledge queries")
+
+
+# ===================
+# Graph CRUD Input Models
+# ===================
+
+
+class NodeCrudInput(BaseModel):
+    """Unified input for node CRUD operations."""
+
+    operation: Literal["create", "read", "update", "delete", "list"] = Field(
+        description="Operation: create, read, update, delete, list"
+    )
+
+    # For create/read/update/delete
+    node_id: Optional[str] = Field(default=None, description="Unique node identifier")
+    node_type: Optional[NodeType] = Field(default=None, description="Type of node (Skill, Knowledge, Script, Tool)")
+
+    # For create/update
+    name: Optional[str] = Field(default=None, description="Node display name")
+    description: Optional[str] = Field(default=None, description="Human-readable description")
+    tags: Optional[List[str]] = Field(default=None, description="Categorization tags")
+    properties: Optional[Dict[str, Any]] = Field(default=None, description="Type-specific properties")
+
+    # For list
+    filters: Optional[Dict[str, Any]] = Field(default=None, description="Filter criteria for list operation")
+    limit: int = Field(default=50, description="Maximum number of results")
+    offset: int = Field(default=0, description="Offset for pagination")
+
+
+class RelationshipCrudInput(BaseModel):
+    """Unified input for relationship CRUD operations."""
+
+    operation: Literal["create", "get", "delete", "list"] = Field(
+        description="Operation: create, get, delete, list"
+    )
+
+    # For create/delete
+    from_id: Optional[str] = Field(default=None, description="Source node ID")
+    to_id: Optional[str] = Field(default=None, description="Target node ID")
+    relationship_type: Optional[RelationshipType] = Field(default=None, description="Type of relationship")
+
+    # For create
+    properties: Optional[Dict[str, Any]] = Field(default=None, description="Relationship-specific properties")
+
+    # For get
+    node_id: Optional[str] = Field(default=None, description="Node ID to get relationships for")
+    direction: Optional[Literal["incoming", "outgoing", "both"]] = Field(
+        default="both", description="Direction of relationships to retrieve"
+    )
+
+    # For list
+    filters: Optional[Dict[str, Any]] = Field(default=None, description="Filter criteria")
+    limit: int = Field(default=50, description="Maximum number of results")
+
+
+class QueryGraphInput(BaseModel):
+    """Unified input for graph query operations."""
+
+    operation: Literal["query", "traverse", "find_path", "stats"] = Field(
+        description="Operation: query (Cypher), traverse, find_path, stats"
+    )
+
+    # For query (raw Cypher)
+    cypher_query: Optional[str] = Field(default=None, description="Raw Cypher query string")
+    params: Optional[Dict[str, Any]] = Field(default=None, description="Query parameters")
+
+    # For traverse
+    start_node_id: Optional[str] = Field(default=None, description="Starting node ID for traversal")
+    direction: Optional[Literal["incoming", "outgoing", "both"]] = Field(
+        default="both", description="Traversal direction"
+    )
+    max_depth: int = Field(default=3, description="Maximum traversal depth (1-10)")
+    relationship_types: Optional[List[RelationshipType]] = Field(
+        default=None, description="Filter by relationship types"
+    )
+    node_types: Optional[List[NodeType]] = Field(default=None, description="Filter by node types")
+
+    # For find_path
+    from_id: Optional[str] = Field(default=None, description="Source node ID for pathfinding")
+    to_id: Optional[str] = Field(default=None, description="Target node ID for pathfinding")
+    max_path_length: int = Field(default=5, description="Maximum path length (1-10)")
+
+    # Common
+    limit: int = Field(default=100, description="Maximum number of results")
+
+
+class ExecuteScriptInput(BaseModel):
+    """Input for executing a script node."""
+
+    script_node_id: str = Field(description="Node ID of the script to execute")
+    args: Optional[List[str]] = Field(default=None, description="Command-line arguments")
+    env: Optional[Dict[str, str]] = Field(default=None, description="Environment variables")
+    timeout: int = Field(default=30, description="Execution timeout in seconds")

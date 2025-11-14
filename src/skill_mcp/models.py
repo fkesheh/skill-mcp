@@ -1,5 +1,7 @@
 """Pydantic models for skill-mcp MCP tools."""
 
+from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -146,3 +148,62 @@ class SkillSummary(BaseModel):
     name: str
     description: str
     has_skill_md: bool
+
+
+# ===================
+# Graph Models
+# ===================
+
+
+class NodeType(str, Enum):
+    """Types of nodes in the graph."""
+
+    SKILL = "Skill"
+    KNOWLEDGE = "Knowledge"
+    SCRIPT = "Script"
+    TOOL = "Tool"
+
+
+class RelationshipType(str, Enum):
+    """Types of relationships between nodes."""
+
+    CONTAINS = "CONTAINS"  # Skill contains Script/Knowledge
+    DEPENDS_ON = "DEPENDS_ON"  # Script depends on another Script/Tool
+    USES = "USES"  # Script uses Tool
+    REFERENCES = "REFERENCES"  # Knowledge references Skill/Script
+    RELATED_TO = "RELATED_TO"  # Knowledge related to Knowledge
+    EXPLAINS = "EXPLAINS"  # Knowledge explains Skill
+    IMPORTS = "IMPORTS"  # Script imports module/library
+
+
+class Node(BaseModel):
+    """Generic node in the knowledge graph."""
+
+    id: str = Field(description="Unique node identifier")
+    type: NodeType = Field(description="Type of node")
+    name: str = Field(description="Display name")
+    description: Optional[str] = Field(default=None, description="Human-readable description")
+    tags: List[str] = Field(default_factory=list, description="Categorization tags")
+    properties: Dict[str, Any] = Field(default_factory=dict, description="Type-specific properties")
+    created_at: datetime = Field(default_factory=datetime.now, description="Creation timestamp")
+    updated_at: datetime = Field(default_factory=datetime.now, description="Last update timestamp")
+
+    class Config:
+        """Pydantic config."""
+
+        use_enum_values = True
+
+
+class Relationship(BaseModel):
+    """Relationship between two nodes."""
+
+    from_id: str = Field(description="Source node ID")
+    to_id: str = Field(description="Target node ID")
+    type: RelationshipType = Field(description="Relationship type")
+    properties: Dict[str, Any] = Field(default_factory=dict, description="Relationship-specific properties")
+    created_at: datetime = Field(default_factory=datetime.now, description="Creation timestamp")
+
+    class Config:
+        """Pydantic config."""
+
+        use_enum_values = True
