@@ -181,14 +181,25 @@ class RelationshipCrud:
 - **delete**: Delete a specific relationship
 - **list**: List all relationships in the graph
 
-**Relationship Types:**
-- CONTAINS: Skill contains Scripts/Knowledge
-- DEPENDS_ON: Script depends on another Script/Tool
-- USES: Script uses Tool
-- REFERENCES: Knowledge references Skill/Script
-- RELATED_TO: Knowledge related to Knowledge
-- EXPLAINS: Knowledge explains Skill
-- IMPORTS: Script imports module/library
+**Valid Relationship Types (case-sensitive):**
+- **CONTAINS**: Skill contains Scripts/Knowledge/Tools
+- **DEPENDS_ON**: Script/Tool depends on another Script/Tool
+- **USES**: Script uses Tool (function call)
+- **REFERENCES**: Knowledge references Skill/Script/Tool
+- **RELATED_TO**: Knowledge related to Knowledge
+- **EXPLAINS**: Knowledge explains Skill/Script/Tool
+- **IMPORTS**: Script imports module/library
+- **USES_ENV**: Script/Skill uses EnvFile (loads environment variables)
+
+**Common Patterns:**
+- Skill → CONTAINS → Script/Knowledge/Tool
+- Script → USES_ENV → EnvFile
+- Script → DEPENDS_ON → Script/Tool
+- Script → USES → Tool
+- Script → IMPORTS → Tool (external library)
+- Knowledge → EXPLAINS → Skill/Script/Tool
+- Knowledge → REFERENCES → Skill/Script/Tool
+- Knowledge → RELATED_TO → Knowledge
 
 See tool docstring for detailed examples.""",
                 inputSchema=RelationshipCrudInput.model_json_schema(),
@@ -246,14 +257,25 @@ See tool docstring for detailed examples.""",
         - delete: Delete a specific relationship
         - list: List all relationships in the graph
 
-        Relationship Types:
-        - CONTAINS: Skill contains Scripts/Knowledge
-        - DEPENDS_ON: Script depends on another Script/Tool
-        - USES: Script uses Tool
-        - REFERENCES: Knowledge references Skill/Script
+        Valid Relationship Types (case-sensitive):
+        - CONTAINS: Skill contains Scripts/Knowledge/Tools
+        - DEPENDS_ON: Script/Tool depends on another Script/Tool
+        - USES: Script uses Tool (function call)
+        - REFERENCES: Knowledge references Skill/Script/Tool
         - RELATED_TO: Knowledge related to Knowledge
-        - EXPLAINS: Knowledge explains Skill
+        - EXPLAINS: Knowledge explains Skill/Script/Tool
         - IMPORTS: Script imports module/library
+        - USES_ENV: Script/Skill uses EnvFile (loads environment variables)
+
+        Common Patterns:
+        - Skill → CONTAINS → Script/Knowledge/Tool
+        - Script → USES_ENV → EnvFile
+        - Script → DEPENDS_ON → Script/Tool
+        - Script → USES → Tool
+        - Script → IMPORTS → Tool (external library)
+        - Knowledge → EXPLAINS → Skill/Script/Tool
+        - Knowledge → REFERENCES → Skill/Script/Tool
+        - Knowledge → RELATED_TO → Knowledge
 
         Examples:
 
@@ -274,6 +296,14 @@ See tool docstring for detailed examples.""",
             "properties": {
                 "reason": "imports helper functions"
             }
+        }
+
+        Create a USES_ENV relationship (Script uses EnvFile):
+        {
+            "operation": "create",
+            "from_id": "script-abc123",
+            "to_id": "env-xyz789",
+            "relationship_type": "USES_ENV"
         }
 
         Get all relationships for a node:

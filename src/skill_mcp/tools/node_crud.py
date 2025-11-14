@@ -202,11 +202,14 @@ class NodeCrud:
 - **delete**: Delete node and relationships (requires: node_id)
 - **list**: List nodes with optional filters
 
-**Node Types:**
-- Skill: Represents a skill directory
-- Knowledge: Represents a knowledge document (.md file)
-- Script: Represents an executable script (.py, .js, .sh)
-- Tool: Represents an MCP tool/function
+**Valid Node Types:**
+- **Skill**: Represents a skill directory with scripts/docs
+- **Knowledge**: Represents a knowledge document (.md file)
+- **Script**: Represents an executable script (.py, .js, .sh, etc.)
+- **Tool**: Represents an MCP tool/function definition
+- **EnvFile**: Represents an environment file reference (.env file path)
+
+**Note:** Use the exact string values above (case-sensitive) when specifying node_type.
 
 See tool docstring for detailed examples.""",
                 inputSchema=NodeCrudInput.model_json_schema(),
@@ -266,11 +269,12 @@ See tool docstring for detailed examples.""",
         - delete: Delete node and relationships (requires: node_id)
         - list: List nodes with optional filters
 
-        Node Types:
-        - Skill: Represents a skill directory
+        Valid Node Types (case-sensitive):
+        - Skill: Represents a skill directory with scripts/docs
         - Knowledge: Represents a knowledge document (.md file)
-        - Script: Represents an executable script (.py, .js, .sh)
-        - Tool: Represents an MCP tool/function
+        - Script: Represents an executable script (.py, .js, .sh, etc.)
+        - Tool: Represents an MCP tool/function definition
+        - EnvFile: Represents an environment file reference (.env file path)
 
         Examples:
 

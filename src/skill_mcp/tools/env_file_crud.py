@@ -199,9 +199,15 @@ class EnvFileCrud:
 
 **EnvFile Node Properties:**
 - file_path (required): Absolute path to .env file on disk
-- name: Descriptive name
+- name: Descriptive name for the env file
 - description: Optional description
 - tags: Categorization tags
+
+**Usage with Relationships:**
+- Script → USES_ENV → EnvFile (script loads env vars at runtime)
+- Skill → USES_ENV → EnvFile (skill-level env vars)
+
+**Note:** The node_type for EnvFile nodes is "EnvFile" (case-sensitive).
 
 See tool docstring for detailed examples.""",
                 inputSchema={
@@ -267,6 +273,12 @@ See tool docstring for detailed examples.""",
         Manage environment file references in the knowledge graph.
 
         SECURITY: Only file paths are stored in Neo4j. Actual env values stay on disk!
+
+        Node Type: EnvFile (case-sensitive)
+
+        Relationship Type: USES_ENV (case-sensitive)
+        - Script → USES_ENV → EnvFile (script loads env vars at runtime)
+        - Skill → USES_ENV → EnvFile (skill-level env vars)
 
         Examples:
 
