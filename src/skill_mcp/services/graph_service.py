@@ -1,7 +1,6 @@
-"""Graph database service for Neo4j knowledge graph operations."""
+"""Graph database service for Neo4j knowledge graph operations - Clean node-based architecture."""
 
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from skill_mcp.core.config import (
@@ -12,15 +11,9 @@ from skill_mcp.core.config import (
     NEO4J_PASSWORD,
     NEO4J_URI,
     NEO4J_USER,
-    SKILLS_DIR,
 )
-from skill_mcp.core.exceptions import SkillNotFoundError
-from skill_mcp.models import FileInfo, ScriptInfo, SkillDetails
-from skill_mcp.services.script_service import extract_pep723_dependencies
-from skill_mcp.services.skill_service import SkillService
-from skill_mcp.utils.ast_analyzer import PythonImportAnalyzer
+from skill_mcp.models import Node, NodeType, Relationship, RelationshipType
 from skill_mcp.utils.graph_utils import get_current_timestamps, require_connection
-from skill_mcp.utils.script_detector import get_file_type
 
 try:
     from neo4j import GraphDatabase
@@ -37,7 +30,7 @@ class GraphServiceError(Exception):
 
 
 class GraphService:
-    """Service for Neo4j graph database operations."""
+    """Service for Neo4j graph database operations with generic node/relationship operations."""
 
     _instance: Optional["GraphService"] = None
     _driver: Optional[Any] = None
@@ -54,9 +47,7 @@ class GraphService:
             return
 
         if GraphDatabase is None:
-            raise GraphServiceError(
-                "neo4j package not installed. Install with: pip install neo4j"
-            )
+            raise GraphServiceError("neo4j package not installed. Install with: pip install neo4j")
 
         if GraphService._driver is None:
             self._connect()
@@ -95,608 +86,532 @@ class GraphService:
             return False
 
     # ===================
-    # Helper Methods
+    # Generic Node Operations
     # ===================
 
-    def _execute_single_result_query(
-        self, query: str, params: Dict[str, Any], result_key: str
-    ) -> Dict[str, Any]:
+    @require_connection
+    async def create_node(self, node: Node) -> Dict[str, Any]:
         """
-        Execute query expecting single result node.
+        Create a new node in the graph.
 
         Args:
-            query: Cypher query string
-            params: Query parameters
-            result_key: Key to extract from result record
+            node: Node object with all properties
 
         Returns:
-            Dictionary with node properties or empty dict
+            Dictionary with created node properties
         """
+        timestamps = get_current_timestamps()
+
+        query = f"""
+        CREATE (n:{node.type.value} {{
+            id: $id,
+            name: $name,
+            description: $description,
+            tags: $tags,
+            created_at: datetime($created_at),
+            updated_at: datetime($updated_at)
+        }})
+        SET n += $properties
+        RETURN n
+        """
+
+        params = {
+            "id": node.id,
+            "name": node.name,
+            "description": node.description or "",
+            "tags": node.tags,
+            "properties": node.properties,
+            **timestamps,
+        }
+
         with GraphService._driver.session(database=NEO4J_DATABASE) as session:
             result = session.run(query, params)
             record = result.single()
             if record:
-                return dict(record[result_key])
+                return dict(record["n"])
             return {}
 
-    def _execute_write_query(self, query: str, params: Dict[str, Any]) -> None:
+    @require_connection
+    async def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
         """
-        Execute write query without expecting results.
+        Get a node by ID.
 
         Args:
-            query: Cypher query string
-            params: Query parameters
+            node_id: Unique node identifier
+
+        Returns:
+            Node properties dictionary or None if not found
         """
+        query = """
+        MATCH (n {id: $node_id})
+        RETURN n, labels(n) as labels
+        """
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query, {"node_id": node_id})
+            record = result.single()
+            if record:
+                node_dict = dict(record["n"])
+                node_dict["type"] = record["labels"][0] if record["labels"] else "Unknown"
+                return node_dict
+            return None
+
+    @require_connection
+    async def update_node(self, node_id: str, properties: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update node properties.
+
+        Args:
+            node_id: Unique node identifier
+            properties: Properties to update
+
+        Returns:
+            Updated node properties
+        """
+        timestamps = get_current_timestamps()
+
+        query = """
+        MATCH (n {id: $node_id})
+        SET n += $properties,
+            n.updated_at = datetime($updated_at)
+        RETURN n
+        """
+
+        params = {
+            "node_id": node_id,
+            "properties": properties,
+            "updated_at": timestamps["updated_at"],
+        }
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query, params)
+            record = result.single()
+            if record:
+                return dict(record["n"])
+            return {}
+
+    @require_connection
+    async def delete_node(self, node_id: str) -> None:
+        """
+        Delete a node and all its relationships.
+
+        Args:
+            node_id: Unique node identifier
+        """
+        query = """
+        MATCH (n {id: $node_id})
+        DETACH DELETE n
+        """
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            session.run(query, {"node_id": node_id})
+
+    @require_connection
+    async def list_nodes(
+        self,
+        node_type: Optional[NodeType] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
+        """
+        List nodes with optional filtering.
+
+        Args:
+            node_type: Filter by node type
+            filters: Additional filter criteria
+            limit: Maximum number of results
+            offset: Offset for pagination
+
+        Returns:
+            List of node dictionaries
+        """
+        if node_type:
+            match_clause = f"MATCH (n:{node_type.value})"
+        else:
+            match_clause = "MATCH (n)"
+
+        where_clauses = []
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+
+        if filters:
+            for key, value in filters.items():
+                where_clauses.append(f"n.{key} = ${key}")
+                params[key] = value
+
+        where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+        query = f"""
+        {match_clause}
+        {where_clause}
+        RETURN n, labels(n) as labels
+        ORDER BY n.updated_at DESC
+        SKIP $offset
+        LIMIT $limit
+        """
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query, params)
+            nodes = []
+            for record in result:
+                node_dict = dict(record["n"])
+                node_dict["type"] = record["labels"][0] if record["labels"] else "Unknown"
+                nodes.append(node_dict)
+            return nodes
+
+    # ===================
+    # Generic Relationship Operations
+    # ===================
+
+    @require_connection
+    async def create_relationship(self, relationship: Relationship) -> Dict[str, Any]:
+        """
+        Create a relationship between two nodes.
+
+        Args:
+            relationship: Relationship object
+
+        Returns:
+            Dictionary with relationship properties
+        """
+        timestamps = get_current_timestamps()
+
+        query = f"""
+        MATCH (from {{id: $from_id}}), (to {{id: $to_id}})
+        CREATE (from)-[r:{relationship.type.value}]->(to)
+        SET r += $properties,
+            r.created_at = datetime($created_at)
+        RETURN r
+        """
+
+        params = {
+            "from_id": relationship.from_id,
+            "to_id": relationship.to_id,
+            "properties": relationship.properties,
+            "created_at": timestamps["created_at"],
+        }
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query, params)
+            record = result.single()
+            if record:
+                return dict(record["r"])
+            return {}
+
+    @require_connection
+    async def get_relationships(
+        self,
+        node_id: str,
+        direction: str = "both",
+        relationship_type: Optional[RelationshipType] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all relationships for a node.
+
+        Args:
+            node_id: Node ID to get relationships for
+            direction: "incoming", "outgoing", or "both"
+            relationship_type: Optional filter by relationship type
+
+        Returns:
+            List of relationship dictionaries with connected nodes
+        """
+        type_filter = f":{relationship_type.value}" if relationship_type else ""
+
+        if direction == "incoming":
+            pattern = f"(other)-[r{type_filter}]->(n)"
+        elif direction == "outgoing":
+            pattern = f"(n)-[r{type_filter}]->(other)"
+        else:  # both
+            pattern = f"(n)-[r{type_filter}]-(other)"
+
+        query = f"""
+        MATCH {pattern}
+        WHERE n.id = $node_id
+        RETURN r, type(r) as rel_type,
+               other.id as other_id,
+               other.name as other_name,
+               labels(other) as other_labels
+        """
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query, {"node_id": node_id})
+            relationships = []
+            for record in result:
+                rel_dict = {
+                    "type": record["rel_type"],
+                    "properties": dict(record["r"]),
+                    "other_node": {
+                        "id": record["other_id"],
+                        "name": record["other_name"],
+                        "type": record["other_labels"][0] if record["other_labels"] else "Unknown",
+                    },
+                }
+                relationships.append(rel_dict)
+            return relationships
+
+    @require_connection
+    async def delete_relationship(
+        self,
+        from_id: str,
+        to_id: str,
+        relationship_type: RelationshipType,
+    ) -> None:
+        """
+        Delete a specific relationship.
+
+        Args:
+            from_id: Source node ID
+            to_id: Target node ID
+            relationship_type: Type of relationship to delete
+        """
+        query = f"""
+        MATCH (from {{id: $from_id}})-[r:{relationship_type.value}]->(to {{id: $to_id}})
+        DELETE r
+        """
+
+        params = {"from_id": from_id, "to_id": to_id}
+
         with GraphService._driver.session(database=NEO4J_DATABASE) as session:
             session.run(query, params)
 
-    # ===================
-    # Node Operations
-    # ===================
-
     @require_connection
-    async def create_skill_node(self, skill_details: SkillDetails) -> Dict[str, Any]:
-        """
-        Create or update a skill node in the graph.
-
-        Args:
-            skill_details: SkillDetails object with complete skill info
-
-        Returns:
-            Dictionary with node properties
-        """
-        query = """
-        MERGE (s:Skill {name: $name})
-        SET s.description = $description,
-            s.has_env_file = $has_env_file,
-            s.file_count = $file_count,
-            s.script_count = $script_count,
-            s.updated_at = datetime($updated_at)
-        ON CREATE SET s.created_at = datetime($created_at)
-        RETURN s
-        """
-
-        timestamps = get_current_timestamps()
-        params = {
-            "name": skill_details.name,
-            "description": skill_details.description,
-            "has_env_file": skill_details.has_env_file,
-            "file_count": len(skill_details.files),
-            "script_count": len(skill_details.scripts),
-            **timestamps,
-        }
-
-        return self._execute_single_result_query(query, params, "s")
-
-    @require_connection
-    async def create_file_node(
-        self, skill_name: str, file_info: FileInfo
-    ) -> Dict[str, Any]:
-        """
-        Create or update a file node.
-
-        Args:
-            skill_name: Name of the skill
-            file_info: FileInfo object
-
-        Returns:
-            Dictionary with node properties
-        """
-        # Determine labels based on file type
-        labels = self._get_file_labels(file_info)
-        label_str = ":".join(labels)
-
-        query = f"""
-        MERGE (f:{label_str} {{path: $path, skill_name: $skill_name}})
-        SET f.type = $type,
-            f.size = $size,
-            f.is_executable = $is_executable,
-            f.modified_at = datetime($modified_at)
-        RETURN f
-        """
-
-        params = {
-            "path": file_info.path,
-            "skill_name": skill_name,
-            "type": file_info.type,
-            "size": file_info.size,
-            "is_executable": file_info.is_executable,
-            "modified_at": (
-                datetime.fromtimestamp(file_info.modified).isoformat()
-                if file_info.modified
-                else datetime.now().isoformat()
-            ),
-        }
-
-        return self._execute_single_result_query(query, params, "f")
-
-    def _get_file_labels(self, file_info: FileInfo) -> List[str]:
-        """
-        Determine Neo4j labels for a file based on its type.
-
-        Args:
-            file_info: FileInfo object
-
-        Returns:
-            List of labels to apply to the file node
-        """
-        labels = ["File"]
-
-        if file_info.type == "python":
-            labels.append("Python")
-        elif file_info.type == "shell":
-            labels.append("Shell")
-        elif file_info.type == "markdown":
-            labels.append("Markdown")
-
-        if file_info.is_executable:
-            labels.append("Script")
-
-        return labels
-
-    @require_connection
-    async def create_dependency_node(
-        self, package: str, version: str, ecosystem: str = "python"
-    ) -> Dict[str, Any]:
-        """
-        Create or update a dependency node.
-
-        Args:
-            package: Package name (e.g., 'requests')
-            version: Version specification (e.g., '>=2.31.0')
-            ecosystem: Package ecosystem ('python', 'npm', etc.)
-
-        Returns:
-            Dictionary with node properties
-        """
-        query = """
-        MERGE (d:Dependency {package_name: $package, ecosystem: $ecosystem})
-        SET d.version_spec = $version,
-            d.updated_at = datetime($updated_at)
-        ON CREATE SET d.created_at = datetime($created_at)
-        RETURN d
-        """
-
-        timestamps = get_current_timestamps()
-        params = {
-            "package": package,
-            "version": version,
-            "ecosystem": ecosystem,
-            **timestamps,
-        }
-
-        return self._execute_single_result_query(query, params, "d")
-
-    @require_connection
-    async def create_env_var_node(self, skill_name: str, key: str) -> Dict[str, Any]:
-        """
-        Create environment variable node (key only, no value for security).
-
-        Args:
-            skill_name: Name of the skill
-            key: Environment variable key
-
-        Returns:
-            Dictionary with node properties
-        """
-        query = """
-        MERGE (e:EnvVar {key: $key, skill_name: $skill_name})
-        SET e.updated_at = datetime($updated_at)
-        ON CREATE SET e.created_at = datetime($created_at)
-        RETURN e
-        """
-
-        timestamps = get_current_timestamps()
-        params = {
-            "key": key,
-            "skill_name": skill_name,
-            **timestamps,
-        }
-
-        return self._execute_single_result_query(query, params, "e")
-
-    @require_connection
-    async def create_knowledge_node(
+    async def list_relationships(
         self,
-        knowledge_id: str,
-        title: str,
-        content: str,
-        category: str = "note",
-        tags: Optional[List[str]] = None,
-        author: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        filters: Optional[Dict[str, Any]] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
         """
-        Create or update a knowledge document node.
+        List all relationships with optional filtering.
 
         Args:
-            knowledge_id: Unique identifier (e.g., filename without extension)
-            title: Title of the knowledge document
-            content: Content (markdown text)
-            category: Category (tutorial, guide, reference, note, article)
-            tags: List of tags for categorization
-            author: Optional author name
+            filters: Filter criteria
+            limit: Maximum number of results
 
         Returns:
-            Dictionary with node properties
+            List of relationship dictionaries
         """
         query = """
-        MERGE (k:Knowledge {id: $knowledge_id})
-        SET k.title = $title,
-            k.content = $content,
-            k.category = $category,
-            k.tags = $tags,
-            k.author = $author,
-            k.updated_at = datetime($updated_at)
-        ON CREATE SET k.created_at = datetime($created_at)
-        RETURN k
+        MATCH (from)-[r]->(to)
+        RETURN from.id as from_id, from.name as from_name, labels(from) as from_labels,
+               to.id as to_id, to.name as to_name, labels(to) as to_labels,
+               type(r) as rel_type, properties(r) as rel_properties
+        LIMIT $limit
         """
 
-        timestamps = get_current_timestamps()
-        params = {
-            "knowledge_id": knowledge_id,
-            "title": title,
-            "content": content,
-            "category": category,
-            "tags": tags or [],
-            "author": author,
-            **timestamps,
-        }
-
-        return self._execute_single_result_query(query, params, "k")
-
-    @require_connection
-    async def delete_knowledge_node(self, knowledge_id: str) -> None:
-        """Delete a knowledge node and its relationships."""
-        query = """
-        MATCH (k:Knowledge {id: $knowledge_id})
-        DETACH DELETE k
-        """
-
-        params = {"knowledge_id": knowledge_id}
-        self._execute_write_query(query, params)
-
-    # ===================
-    # Relationship Operations
-    # ===================
-
-    @require_connection
-    async def link_skill_to_file(self, skill_name: str, file_path: str) -> None:
-        """Create [:HAS_FILE] relationship between skill and file."""
-        query = """
-        MATCH (s:Skill {name: $skill_name})
-        MATCH (f:File {path: $file_path, skill_name: $skill_name})
-        MERGE (s)-[:HAS_FILE]->(f)
-        """
-        params = {"skill_name": skill_name, "file_path": file_path}
-        self._execute_write_query(query, params)
-
-    @require_connection
-    async def link_file_to_dependency(
-        self, skill_name: str, file_path: str, package: str, ecosystem: str = "python"
-    ) -> None:
-        """Create [:DEPENDS_ON] relationship between file and dependency."""
-        query = """
-        MATCH (f:File {path: $file_path, skill_name: $skill_name})
-        MATCH (d:Dependency {package_name: $package, ecosystem: $ecosystem})
-        MERGE (f)-[:DEPENDS_ON]->(d)
-        """
-        params = {
-            "skill_name": skill_name,
-            "file_path": file_path,
-            "package": package,
-            "ecosystem": ecosystem,
-        }
-        self._execute_write_query(query, params)
-
-    @require_connection
-    async def link_file_imports(
-        self, skill_name: str, from_file: str, to_module: str, import_type: str = "local"
-    ) -> None:
-        """Create [:IMPORTS] relationship between files."""
-        query = """
-        MATCH (f1:File {path: $from_file, skill_name: $skill_name})
-        MERGE (m:Module {name: $to_module, type: $import_type})
-        MERGE (f1)-[:IMPORTS {type: $import_type}]->(m)
-        """
-        params = {
-            "skill_name": skill_name,
-            "from_file": from_file,
-            "to_module": to_module,
-            "import_type": import_type,
-        }
-        self._execute_write_query(query, params)
-
-    @require_connection
-    async def link_cross_skill_reference(
-        self, from_skill: str, to_skill: str, via_file: str
-    ) -> None:
-        """Create [:REFERENCES] relationship for cross-skill imports."""
-        query = """
-        MATCH (s1:Skill {name: $from_skill})
-        MATCH (s2:Skill {name: $to_skill})
-        MERGE (s1)-[r:REFERENCES {via_file: $via_file}]->(s2)
-        SET r.updated_at = datetime($updated_at)
-        """
-        timestamps = get_current_timestamps()
-        params = {
-            "from_skill": from_skill,
-            "to_skill": to_skill,
-            "via_file": via_file,
-            "updated_at": timestamps["updated_at"],
-        }
-        self._execute_write_query(query, params)
-
-    @require_connection
-    async def link_skill_to_env_var(self, skill_name: str, key: str) -> None:
-        """Create [:HAS_ENV_VAR] relationship."""
-        query = """
-        MATCH (s:Skill {name: $skill_name})
-        MATCH (e:EnvVar {key: $key, skill_name: $skill_name})
-        MERGE (s)-[:HAS_ENV_VAR]->(e)
-        """
-        params = {"skill_name": skill_name, "key": key}
-        self._execute_write_query(query, params)
-
-    @require_connection
-    async def link_knowledge_to_skill(
-        self, knowledge_id: str, skill_name: str, relationship_type: str = "EXPLAINS"
-    ) -> None:
-        """
-        Create relationship between knowledge and skill.
-
-        Args:
-            knowledge_id: ID of the knowledge document
-            skill_name: Name of the skill
-            relationship_type: Type of relationship (EXPLAINS, REFERENCES, USES)
-        """
-        # Validate relationship type
-        valid_types = {"EXPLAINS", "REFERENCES", "USES"}
-        if relationship_type not in valid_types:
-            raise GraphServiceError(
-                f"Invalid relationship type: {relationship_type}. "
-                f"Must be one of: {', '.join(valid_types)}"
-            )
-
-        query = f"""
-        MATCH (k:Knowledge {{id: $knowledge_id}})
-        MATCH (s:Skill {{name: $skill_name}})
-        MERGE (k)-[:{relationship_type}]->(s)
-        """
-        params = {"knowledge_id": knowledge_id, "skill_name": skill_name}
-        self._execute_write_query(query, params)
-
-    @require_connection
-    async def link_knowledge_to_knowledge(
-        self, from_knowledge_id: str, to_knowledge_id: str
-    ) -> None:
-        """Create [:RELATED_TO] relationship between knowledge documents."""
-        query = """
-        MATCH (k1:Knowledge {id: $from_id})
-        MATCH (k2:Knowledge {id: $to_id})
-        MERGE (k1)-[:RELATED_TO]->(k2)
-        """
-        params = {"from_id": from_knowledge_id, "to_id": to_knowledge_id}
-        self._execute_write_query(query, params)
-
-    # ===================
-    # Sync Operations
-    # ===================
-
-    @require_connection
-    async def sync_skill_to_graph(self, skill_name: str) -> Dict[str, Any]:
-        """
-        Sync entire skill structure to graph.
-
-        Args:
-            skill_name: Name of the skill to sync
-
-        Returns:
-            Dictionary with sync statistics
-        """
-
-        try:
-            # Get skill details
-            skill_details = SkillService.get_skill_details(skill_name)
-
-            # Create skill node
-            await self.create_skill_node(skill_details)
-
-            # Track statistics
-            stats = {
-                "skill": skill_name,
-                "files_synced": 0,
-                "dependencies_found": 0,
-                "imports_found": 0,
-                "env_vars_synced": 0,
-            }
-
-            # Create file nodes and analyze
-            for file_info in skill_details.files:
-                await self.create_file_node(skill_name, file_info)
-                await self.link_skill_to_file(skill_name, file_info.path)
-                stats["files_synced"] += 1
-
-                # Analyze Python files for imports and dependencies
-                if file_info.type == "python":
-                    file_path = SKILLS_DIR / skill_name / file_info.path
-                    await self._analyze_python_file(skill_name, file_path, file_info.path, stats)
-
-            # Sync environment variables
-            for env_key in skill_details.env_vars:
-                await self.create_env_var_node(skill_name, env_key)
-                await self.link_skill_to_env_var(skill_name, env_key)
-                stats["env_vars_synced"] += 1
-
-            return stats
-
-        except SkillNotFoundError as e:
-            raise GraphServiceError(f"Skill not found: {str(e)}")
-        except Exception as e:
-            raise GraphServiceError(f"Failed to sync skill to graph: {str(e)}")
-
-    async def _analyze_python_file(
-        self, skill_name: str, file_path: Path, relative_path: str, stats: Dict[str, Any]
-    ) -> None:
-        """Analyze a Python file for imports and dependencies."""
-        # Extract imports
-        imports = PythonImportAnalyzer.extract_imports(file_path)
-
-        # Create import relationships
-        for import_type in ["standard_lib", "third_party", "local"]:
-            for module in imports[import_type]:
-                await self.link_file_imports(skill_name, relative_path, module, import_type)
-                stats["imports_found"] += 1
-
-        # Extract PEP 723 dependencies
-        try:
-            content = file_path.read_text(encoding="utf-8")
-            deps = extract_pep723_dependencies(content)
-            for dep in deps:
-                # Parse package name from version spec
-                package_name = dep.split(">=")[0].split("==")[0].split("<")[0].strip()
-                await self.create_dependency_node(package_name, dep, "python")
-                await self.link_file_to_dependency(
-                    skill_name, relative_path, package_name, "python"
-                )
-                stats["dependencies_found"] += 1
-        except Exception:
-            pass
-
-    @require_connection
-    async def sync_all_skills_to_graph(self) -> Dict[str, Any]:
-        """
-        Sync all skills to the graph database.
-
-        Returns:
-            Dictionary with overall sync statistics
-        """
-
-        skills = SkillService.list_skills()
-        overall_stats = {
-            "total_skills": len(skills),
-            "skills_synced": 0,
-            "total_files": 0,
-            "total_dependencies": 0,
-            "total_imports": 0,
-            "errors": [],
-        }
-
-        for skill_summary in skills:
-            try:
-                stats = await self.sync_skill_to_graph(skill_summary.name)
-                overall_stats["skills_synced"] += 1
-                overall_stats["total_files"] += stats["files_synced"]
-                overall_stats["total_dependencies"] += stats["dependencies_found"]
-                overall_stats["total_imports"] += stats["imports_found"]
-            except Exception as e:
-                overall_stats["errors"].append(f"{skill_summary.name}: {str(e)}")
-
-        return overall_stats
-
-    @require_connection
-    async def delete_skill_from_graph(self, skill_name: str) -> None:
-        """Delete a skill and its relationships from the graph."""
-        query = """
-        MATCH (s:Skill {name: $skill_name})
-        OPTIONAL MATCH (s)-[:HAS_FILE]->(f:File)
-        OPTIONAL MATCH (s)-[:HAS_ENV_VAR]->(e:EnvVar)
-        DETACH DELETE s, f, e
-        """
-        params = {"skill_name": skill_name}
-        self._execute_write_query(query, params)
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query, {"limit": limit})
+            relationships = []
+            for record in result:
+                rel_dict = {
+                    "from_node": {
+                        "id": record["from_id"],
+                        "name": record["from_name"],
+                        "type": record["from_labels"][0] if record["from_labels"] else "Unknown",
+                    },
+                    "to_node": {
+                        "id": record["to_id"],
+                        "name": record["to_name"],
+                        "type": record["to_labels"][0] if record["to_labels"] else "Unknown",
+                    },
+                    "type": record["rel_type"],
+                    "properties": record["rel_properties"],
+                }
+                relationships.append(rel_dict)
+            return relationships
 
     # ===================
     # Query Operations
     # ===================
 
     @require_connection
-    async def execute_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    async def query_cypher(
+        self,
+        query: str,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
         """
-        Execute a raw Cypher query.
+        Execute raw Cypher query.
 
         Args:
             query: Cypher query string
             params: Query parameters
 
         Returns:
-            List of result records as dictionaries
+            List of result dictionaries
         """
-        params = params or {}
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query, params or {}, timeout=GRAPH_QUERY_TIMEOUT)
+            return result.data()
 
-        try:
-            with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-                result = session.run(query, params, timeout=GRAPH_QUERY_TIMEOUT)
-                return [dict(record) for record in result]
-        except Exception as e:
-            raise GraphServiceError(f"Query execution failed: {str(e)}")
+    @require_connection
+    async def traverse_graph(
+        self,
+        start_node_id: str,
+        direction: str = "both",
+        max_depth: int = 3,
+        relationship_types: Optional[List[RelationshipType]] = None,
+        node_types: Optional[List[NodeType]] = None,
+        limit: int = 100,
+    ) -> Dict[str, Any]:
+        """
+        Traverse graph from starting node.
+
+        Args:
+            start_node_id: Starting node ID
+            direction: "incoming", "outgoing", or "both"
+            max_depth: Maximum traversal depth
+            relationship_types: Filter by relationship types
+            node_types: Filter by node types
+            limit: Maximum number of nodes
+
+        Returns:
+            Dictionary with nodes and relationships
+        """
+        # Build relationship pattern
+        rel_type_filter = ""
+        if relationship_types:
+            types = "|".join([rt.value for rt in relationship_types])
+            rel_type_filter = f":{types}"
+
+        if direction == "incoming":
+            pattern = f"<-[r{rel_type_filter}*1..{max_depth}]-"
+        elif direction == "outgoing":
+            pattern = f"-[r{rel_type_filter}*1..{max_depth}]->"
+        else:  # both
+            pattern = f"-[r{rel_type_filter}*1..{max_depth}]-"
+
+        # Build node filter
+        node_filter = ""
+        if node_types:
+            type_conditions = " OR ".join([f"'{nt.value}' IN labels(other)" for nt in node_types])
+            node_filter = f"WHERE {type_conditions}"
+
+        query = f"""
+        MATCH (start {{id: $start_id}})
+        MATCH path = (start){pattern}(other)
+        {node_filter}
+        WITH nodes(path) as path_nodes, relationships(path) as path_rels
+        UNWIND path_nodes as node
+        WITH collect(DISTINCT {{
+            id: node.id,
+            name: node.name,
+            type: labels(node)[0],
+            properties: properties(node)
+        }}) as nodes,
+        path_rels
+        UNWIND path_rels as rel
+        WITH nodes, collect(DISTINCT {{
+            from: startNode(rel).id,
+            to: endNode(rel).id,
+            type: type(rel),
+            properties: properties(rel)
+        }}) as relationships
+        RETURN nodes[0..$limit] as nodes, relationships
+        """
+
+        params = {"start_id": start_node_id, "limit": limit}
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query, params, timeout=GRAPH_QUERY_TIMEOUT)
+            record = result.single()
+            if record:
+                return {
+                    "nodes": record["nodes"] or [],
+                    "relationships": record["relationships"] or [],
+                }
+            return {"nodes": [], "relationships": []}
+
+    @require_connection
+    async def find_path(
+        self,
+        from_id: str,
+        to_id: str,
+        max_path_length: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """
+        Find paths between two nodes.
+
+        Args:
+            from_id: Source node ID
+            to_id: Target node ID
+            max_path_length: Maximum path length
+
+        Returns:
+            List of paths (each path is a list of nodes)
+        """
+        query = f"""
+        MATCH path = shortestPath((from {{id: $from_id}})-[*1..{max_path_length}]-(to {{id: $to_id}}))
+        RETURN [node in nodes(path) | {{
+            id: node.id,
+            name: node.name,
+            type: labels(node)[0]
+        }}] as path_nodes,
+        [rel in relationships(path) | {{
+            type: type(rel)
+        }}] as path_relationships
+        LIMIT 10
+        """
+
+        params = {"from_id": from_id, "to_id": to_id}
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query, params, timeout=GRAPH_QUERY_TIMEOUT)
+            paths = []
+            for record in result:
+                paths.append(
+                    {
+                        "nodes": record["path_nodes"],
+                        "relationships": record["path_relationships"],
+                    }
+                )
+            return paths
 
     @require_connection
     async def get_graph_stats(self) -> Dict[str, Any]:
-        """Get statistics about the graph."""
+        """
+        Get graph statistics.
 
+        Returns:
+            Dictionary with node counts, relationship counts, etc.
+        """
         query = """
         MATCH (n)
-        RETURN labels(n)[0] as node_type, count(*) as count
-        ORDER BY count DESC
-        """
-
-        results = await self.execute_query(query)
-
-        stats = {"node_counts": {}, "total_nodes": 0}
-        for record in results:
-            node_type = record.get("node_type", "Unknown")
-            count = record.get("count", 0)
-            stats["node_counts"][node_type] = count
-            stats["total_nodes"] += count
-
-        # Get relationship counts
-        rel_query = """
+        WITH labels(n)[0] as node_type, count(n) as node_count
+        WITH collect({type: node_type, count: node_count}) as node_counts
         MATCH ()-[r]->()
-        RETURN type(r) as rel_type, count(*) as count
-        ORDER BY count DESC
+        WITH node_counts, type(r) as rel_type, count(r) as rel_count
+        WITH node_counts, collect({type: rel_type, count: rel_count}) as rel_counts
+        RETURN node_counts, rel_counts,
+               reduce(total = 0, nc IN node_counts | total + nc.count) as total_nodes,
+               reduce(total = 0, rc IN rel_counts | total + rc.count) as total_relationships
         """
 
-        rel_results = await self.execute_query(rel_query)
-        stats["relationship_counts"] = {}
-        stats["total_relationships"] = 0
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query)
+            record = result.single()
+            if record:
+                node_counts = {nc["type"]: nc["count"] for nc in record["node_counts"]}
+                rel_counts = {rc["type"]: rc["count"] for rc in record["rel_counts"]}
+                return {
+                    "node_counts": node_counts,
+                    "relationship_counts": rel_counts,
+                    "total_nodes": record["total_nodes"],
+                    "total_relationships": record["total_relationships"],
+                }
+            return {
+                "node_counts": {},
+                "relationship_counts": {},
+                "total_nodes": 0,
+                "total_relationships": 0,
+            }
 
-        for record in rel_results:
-            rel_type = record.get("rel_type", "Unknown")
-            count = record.get("count", 0)
-            stats["relationship_counts"][rel_type] = count
-            stats["total_relationships"] += count
+    # ===================
+    # Backward Compatibility (will be removed)
+    # ===================
 
-        return stats
-
-    async def record_script_execution(
-        self, skill_name: str, script_path: str, success: bool, timestamp: Optional[datetime] = None
-    ) -> None:
-        """Record a script execution for tracking purposes."""
-        if not self.is_connected():
-            return  # Silently skip if not connected
-
-        if timestamp is None:
-            timestamp = datetime.now()
-
-        query = """
-        MATCH (s:Skill {name: $skill_name})
-        MATCH (f:File {path: $script_path, skill_name: $skill_name})
-        MERGE (s)-[r:EXECUTED {script_path: $script_path}]->(f)
-        SET r.last_executed = datetime($timestamp),
-            r.last_success = $success,
-            r.execution_count = coalesce(r.execution_count, 0) + 1
-        """
-
-        params = {
-            "skill_name": skill_name,
-            "script_path": script_path,
-            "timestamp": timestamp.isoformat(),
-            "success": success,
-        }
-
-        try:
-            with GraphService._driver.session(database=NEO4J_DATABASE) as session:
-                session.run(query, params)
-        except Exception:
-            # Silently fail - don't break script execution
-            pass
+    async def execute_query(
+        self, query: str, params: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """Backward compatibility wrapper for query_cypher."""
+        return await self.query_cypher(query, params)

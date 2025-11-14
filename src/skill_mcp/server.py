@@ -14,12 +14,16 @@ from mcp.server import Server
 
 from skill_mcp.models import ExecutePythonCodeInput, RunSkillScriptInput
 from skill_mcp.models_crud import (
-    GraphCrudInput,
+    NodeCrudInput,
+    QueryGraphInput,
+    RelationshipCrudInput,
     SkillCrudInput,
     SkillEnvCrudInput,
     SkillFilesCrudInput,
 )
-from skill_mcp.tools.graph_crud import GraphCrud
+from skill_mcp.tools.node_crud import NodeCrud
+from skill_mcp.tools.query_graph import QueryGraph
+from skill_mcp.tools.relationship_crud import RelationshipCrud
 from skill_mcp.tools.script_tools import ScriptTools
 from skill_mcp.tools.skill_crud import SkillCrud
 from skill_mcp.tools.skill_env_crud import SkillEnvCrud
@@ -37,7 +41,9 @@ async def list_tools() -> list[types.Tool]:
     tools.extend(SkillFilesCrud.get_tool_definition())
     tools.extend(SkillEnvCrud.get_tool_definition())
     tools.extend(ScriptTools.get_script_tools())
-    tools.extend(GraphCrud.get_tool_definition())
+    tools.extend(NodeCrud.get_tool_definition())
+    tools.extend(RelationshipCrud.get_tool_definition())
+    tools.extend(QueryGraph.get_tool_definition())
     return tools
 
 
@@ -65,9 +71,15 @@ async def call_tool(name: str, arguments: Any) -> list[types.TextContent]:
             return await ScriptTools.run_skill_script(script_input)
 
         # Graph tools
-        elif name == "skill_graph_crud":
-            graph_input = GraphCrudInput(**arguments)
-            return await GraphCrud.skill_graph_crud(graph_input)
+        elif name == "node_crud":
+            node_input = NodeCrudInput(**arguments)
+            return await NodeCrud.node_crud(node_input)
+        elif name == "relationship_crud":
+            rel_input = RelationshipCrudInput(**arguments)
+            return await RelationshipCrud.relationship_crud(rel_input)
+        elif name == "query_graph":
+            query_input = QueryGraphInput(**arguments)
+            return await QueryGraph.query_graph(query_input)
 
         else:
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]

@@ -104,7 +104,8 @@ class GraphCrudInput(BaseModel):
 
     # Query operations
     cypher_query: Optional[str] = Field(
-        default=None, description="Raw Cypher query string (for advanced users in 'query' operation)"
+        default=None,
+        description="Raw Cypher query string (for advanced users in 'query' operation)",
     )
     query_type: Optional[str] = Field(
         default=None,
@@ -147,9 +148,7 @@ class GraphCrudInput(BaseModel):
         default="note",
         description="Category: 'tutorial', 'guide', 'reference', 'note', 'article'",
     )
-    knowledge_tags: Optional[List[str]] = Field(
-        default=None, description="Tags for categorization"
-    )
+    knowledge_tags: Optional[List[str]] = Field(default=None, description="Tags for categorization")
     knowledge_author: Optional[str] = Field(default=None, description="Author name")
     relationship_type: Optional[str] = Field(
         default="EXPLAINS",
@@ -178,16 +177,22 @@ class NodeCrudInput(BaseModel):
 
     # For create/read/update/delete
     node_id: Optional[str] = Field(default=None, description="Unique node identifier")
-    node_type: Optional[NodeType] = Field(default=None, description="Type of node (Skill, Knowledge, Script, Tool)")
+    node_type: Optional[NodeType] = Field(
+        default=None, description="Type of node (Skill, Knowledge, Script, Tool)"
+    )
 
     # For create/update
     name: Optional[str] = Field(default=None, description="Node display name")
     description: Optional[str] = Field(default=None, description="Human-readable description")
     tags: Optional[List[str]] = Field(default=None, description="Categorization tags")
-    properties: Optional[Dict[str, Any]] = Field(default=None, description="Type-specific properties")
+    properties: Optional[Dict[str, Any]] = Field(
+        default=None, description="Type-specific properties"
+    )
 
     # For list
-    filters: Optional[Dict[str, Any]] = Field(default=None, description="Filter criteria for list operation")
+    filters: Optional[Dict[str, Any]] = Field(
+        default=None, description="Filter criteria for list operation"
+    )
     limit: int = Field(default=50, description="Maximum number of results")
     offset: int = Field(default=0, description="Offset for pagination")
 
@@ -202,10 +207,14 @@ class RelationshipCrudInput(BaseModel):
     # For create/delete
     from_id: Optional[str] = Field(default=None, description="Source node ID")
     to_id: Optional[str] = Field(default=None, description="Target node ID")
-    relationship_type: Optional[RelationshipType] = Field(default=None, description="Type of relationship")
+    relationship_type: Optional[RelationshipType] = Field(
+        default=None, description="Type of relationship"
+    )
 
     # For create
-    properties: Optional[Dict[str, Any]] = Field(default=None, description="Relationship-specific properties")
+    properties: Optional[Dict[str, Any]] = Field(
+        default=None, description="Relationship-specific properties"
+    )
 
     # For get
     node_id: Optional[str] = Field(default=None, description="Node ID to get relationships for")

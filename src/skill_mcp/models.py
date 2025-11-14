@@ -200,7 +200,9 @@ class Relationship(BaseModel):
     from_id: str = Field(description="Source node ID")
     to_id: str = Field(description="Target node ID")
     type: RelationshipType = Field(description="Relationship type")
-    properties: Dict[str, Any] = Field(default_factory=dict, description="Relationship-specific properties")
+    properties: Dict[str, Any] = Field(
+        default_factory=dict, description="Relationship-specific properties"
+    )
     created_at: datetime = Field(default_factory=datetime.now, description="Creation timestamp")
 
     class Config:
