@@ -103,7 +103,7 @@ class GraphService:
         timestamps = get_current_timestamps()
 
         # Handle both enum and string types
-        node_type = node.type.value if hasattr(node.type, 'value') else node.type
+        node_type = node.type.value if hasattr(node.type, "value") else node.type
 
         query = f"""
         CREATE (n:{node_type} {{
@@ -280,7 +280,9 @@ class GraphService:
         timestamps = get_current_timestamps()
 
         # Handle both enum and string types
-        rel_type = relationship.type.value if hasattr(relationship.type, 'value') else relationship.type
+        rel_type = (
+            relationship.type.value if hasattr(relationship.type, "value") else relationship.type
+        )
 
         query = f"""
         MATCH (from {{id: $from_id}}), (to {{id: $to_id}})
@@ -611,6 +613,38 @@ class GraphService:
                 "total_nodes": 0,
                 "total_relationships": 0,
             }
+
+    # ===================
+    # EnvFile Helper Methods
+    # ===================
+
+    @require_connection
+    async def get_env_files_for_node(self, node_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all EnvFile nodes linked to a specific node (Script or Skill).
+
+        Args:
+            node_id: ID of the node to get env files for
+
+        Returns:
+            List of EnvFile node dictionaries with file_path properties
+        """
+        query = """
+        MATCH (node {id: $node_id})-[:USES_ENV]->(env:EnvFile)
+        RETURN env
+        """
+
+        with GraphService._driver.session(database=NEO4J_DATABASE) as session:
+            result = session.run(query, {"node_id": node_id})
+            records = result.data()
+
+            env_files = []
+            for record in records:
+                env_node = record.get("env")
+                if env_node:
+                    env_files.append(dict(env_node))
+
+            return env_files
 
     # ===================
     # Backward Compatibility (will be removed)

@@ -275,6 +275,7 @@ RETURNS: Script execution result with:
                 input_data.args,
                 input_data.working_dir,
                 input_data.timeout,
+                input_data.script_node_id,
             )
 
             # Track script execution in graph if enabled

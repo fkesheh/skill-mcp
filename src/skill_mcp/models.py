@@ -70,6 +70,10 @@ class RunSkillScriptInput(BaseModel):
         default=None,
         description="Optional timeout in seconds (defaults to 30 seconds if not specified)",
     )
+    script_node_id: Optional[str] = Field(
+        default=None,
+        description="Optional Script node ID for loading env files from graph (if graph enabled)",
+    )
 
 
 class ExecutePythonCodeInput(BaseModel):
@@ -162,6 +166,7 @@ class NodeType(str, Enum):
     KNOWLEDGE = "Knowledge"
     SCRIPT = "Script"
     TOOL = "Tool"
+    ENVFILE = "EnvFile"  # Environment file reference (stores path, not values)
 
 
 class RelationshipType(str, Enum):
@@ -174,6 +179,7 @@ class RelationshipType(str, Enum):
     RELATED_TO = "RELATED_TO"  # Knowledge related to Knowledge
     EXPLAINS = "EXPLAINS"  # Knowledge explains Skill
     IMPORTS = "IMPORTS"  # Script imports module/library
+    USES_ENV = "USES_ENV"  # Script/Skill uses EnvFile (loads env vars from file)
 
 
 class Node(BaseModel):
