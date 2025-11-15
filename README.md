@@ -156,6 +156,21 @@ Instead of manually copying, zipping, and uploading files:
 - ✅ Persistent storage in per-skill `.env` files
 - ✅ Automatic injection into script execution
 
+### Neo4j Knowledge Graph (Optional) 🔍
+- ✅ **Graph-powered discovery** - Find related skills through relationship traversal
+- ✅ **Dependency mapping** - Visualize complete dependency trees and detect conflicts
+- ✅ **Impact analysis** - See what breaks if you modify a skill
+- ✅ **Smart recommendations** - Find similar skills based on dependencies
+- ✅ **Execution tracking** - Monitor which scripts are used and how often
+- ✅ **Auto-sync** - Automatically update graph when skills change
+- ✅ **Advanced queries** - Cypher queries for complex relationships
+- ✅ **Visualization ready** - Export for Cytoscape.js, Neo4j Browser, and more
+- ✅ **Knowledge documents** - Store tutorials, guides, and docs alongside skills
+- ✅ **Unified knowledge base** - Link documentation to skills via graph relationships
+- ✅ **100% optional** - Works perfectly fine without Neo4j
+
+**See [GRAPH.md](GRAPH.md) for skills graph | [KNOWLEDGE.md](KNOWLEDGE.md) for knowledge docs**
+
 ## Directory Structure
 
 ```
@@ -518,9 +533,10 @@ The server provides these unified CRUD tools to Claude:
 | `skill_env_crud`  | Unified environment variable operations: read, set, delete, clear | N/A |
 | `run_skill_script` | Execute scripts (.py, .js, .sh) with automatic dependency detection | ✅ YES - Auto-detects PEP 723 in Python scripts |
 | `execute_python_code` | Execute Python code directly without files (cross-skill imports) | ✅ YES - PEP 723 PLUS dependency aggregation |
+| `skill_graph_crud` | Neo4j knowledge graph operations: sync, query, analyze, visualize, search (optional) | N/A |
 
 **Key Benefits of CRUD Architecture:**
-- ✅ **Reduced context window usage** - 5 tools instead of 9+
+- ✅ **Reduced context window usage** - 6 tools instead of 9+
 - ✅ **Consistent operation patterns** - All tools follow the same CRUD model
 - ✅ **Bulk operations** - Create/update/delete multiple files atomically
 - ✅ **Better error handling** - Unified error responses across all operations

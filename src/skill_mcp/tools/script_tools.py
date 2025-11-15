@@ -275,7 +275,28 @@ RETURNS: Script execution result with:
                 input_data.args,
                 input_data.working_dir,
                 input_data.timeout,
+                input_data.script_node_id,
             )
+
+            # Track script execution in graph if enabled
+            from skill_mcp.core.config import GRAPH_ENABLED
+
+            if GRAPH_ENABLED:
+                try:
+                    from datetime import datetime
+
+                    from skill_mcp.services.graph_service import GraphService
+
+                    graph_service = GraphService()
+                    await graph_service.record_script_execution(
+                        skill_name=input_data.skill_name,
+                        script_path=input_data.script_path,
+                        success=(result.exit_code == 0),
+                        timestamp=datetime.now(),
+                    )
+                except Exception:
+                    # Silently fail - don't break script execution
+                    pass
 
             output = f"Script: {input_data.skill_name}/{input_data.script_path}\n"
             output += f"Exit code: {result.exit_code}\n\n"

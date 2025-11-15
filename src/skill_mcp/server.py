@@ -13,15 +13,11 @@ from mcp import types
 from mcp.server import Server
 
 from skill_mcp.models import ExecutePythonCodeInput, RunSkillScriptInput
-from skill_mcp.models_crud import (
-    SkillCrudInput,
-    SkillEnvCrudInput,
-    SkillFilesCrudInput,
-)
+from skill_mcp.tools.env_file_crud import EnvFileCrud
+from skill_mcp.tools.node_crud import NodeCrud
+from skill_mcp.tools.query_graph import QueryGraph
+from skill_mcp.tools.relationship_crud import RelationshipCrud
 from skill_mcp.tools.script_tools import ScriptTools
-from skill_mcp.tools.skill_crud import SkillCrud
-from skill_mcp.tools.skill_env_crud import SkillEnvCrud
-from skill_mcp.tools.skill_files_crud import SkillFilesCrud
 
 # Initialize MCP Server
 app = Server("skill-mcp")
@@ -31,9 +27,12 @@ app = Server("skill-mcp")
 async def list_tools() -> list[types.Tool]:
     """List available tools."""
     tools = []
-    tools.extend(SkillCrud.get_tool_definition())
-    tools.extend(SkillFilesCrud.get_tool_definition())
-    tools.extend(SkillEnvCrud.get_tool_definition())
+    # Graph tools (new node-based architecture)
+    tools.extend(NodeCrud.get_tool_definition())
+    tools.extend(RelationshipCrud.get_tool_definition())
+    tools.extend(QueryGraph.get_tool_definition())
+    tools.extend(EnvFileCrud.get_tool_definition())
+    # Script execution tools
     tools.extend(ScriptTools.get_script_tools())
     return tools
 
@@ -42,16 +41,15 @@ async def list_tools() -> list[types.Tool]:
 async def call_tool(name: str, arguments: Any) -> list[types.TextContent]:
     """Handle tool calls."""
     try:
-        # Unified CRUD tools
-        if name == "skill_crud":
-            skill_input = SkillCrudInput(**arguments)
-            return await SkillCrud.skill_crud(skill_input)
-        elif name == "skill_files_crud":
-            files_input = SkillFilesCrudInput(**arguments)
-            return await SkillFilesCrud.skill_files_crud(files_input)
-        elif name == "skill_env_crud":
-            env_input = SkillEnvCrudInput(**arguments)
-            return await SkillEnvCrud.skill_env_crud(env_input)
+        # Graph tools (new node-based architecture)
+        if name == "node_crud":
+            return await NodeCrud.node_crud(arguments)
+        elif name == "relationship_crud":
+            return await RelationshipCrud.relationship_crud(arguments)
+        elif name == "query_graph":
+            return await QueryGraph.query_graph(arguments)
+        elif name == "env_file_crud":
+            return await EnvFileCrud.env_file_crud(arguments)
 
         # Script execution tools
         elif name == "execute_python_code":

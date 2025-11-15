@@ -155,6 +155,7 @@ class ScriptService:
         args: Optional[List[str]] = None,
         working_dir: Optional[str] = None,
         timeout: Optional[int] = None,
+        script_node_id: Optional[str] = None,
     ) -> ScriptResult:
         """
         Execute a script with skill's environment variables.
@@ -165,6 +166,7 @@ class ScriptService:
             args: Optional command-line arguments
             working_dir: Optional working directory
             timeout: Optional timeout in seconds (defaults to SCRIPT_TIMEOUT_SECONDS if not specified)
+            script_node_id: Optional Script node ID for querying linked env files from graph
 
         Returns:
             ScriptResult object
@@ -190,7 +192,7 @@ class ScriptService:
         if not full_script_path.is_file():
             raise ScriptExecutionError(f"'{script_path}' is not a file")
 
-        # Load skill environment variables
+        # Load skill environment variables (legacy method)
         try:
             skill_env = EnvironmentService.load_skill_env(skill_name)
         except SkillNotFoundError:
@@ -201,6 +203,29 @@ class ScriptService:
         # Build environment
         env = os.environ.copy()
         env.update(skill_env)
+
+        # If graph is enabled and script_node_id is provided, query for linked env files
+        try:
+            from skill_mcp.core.config import GRAPH_ENABLED
+            from skill_mcp.services.graph_service import GraphService
+
+            if GRAPH_ENABLED and script_node_id:
+                service = GraphService()
+                env_files = await service.get_env_files_for_node(script_node_id)
+
+                # Load each env file from disk and merge
+                for env_file_node in env_files:
+                    file_path = env_file_node.get("file_path")
+                    if file_path and Path(file_path).exists():
+                        try:
+                            env_vars = EnvironmentService._load_env_file(Path(file_path))
+                            env.update(env_vars)
+                        except Exception:
+                            # If we can't load an env file, just skip it
+                            pass
+        except Exception:
+            # If graph query fails, just continue with skill_env
+            pass
 
         # Determine working directory
         if working_dir:
